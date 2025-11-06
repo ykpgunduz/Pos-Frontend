@@ -1,0 +1,253 @@
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Plus, Minus, Trash2, Moon, Sun, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import './QuickSale.css';
+import { Product, OrderItem } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
+import { useUser } from '../contexts/UserContext';
+
+interface CartItem extends OrderItem {
+  notes?: string;
+}
+
+const QuickSale = () => {
+  const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
+  const { currentUser, openUserSelect } = useUser();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('ÇORBALAR');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [totalAmount, setTotalAmount] = useState<number>(0);
+
+  // Örnek ürün verileri (gerçek API entegrasyonu yapılana kadar)
+  useEffect(() => {
+    setProducts([
+      { id: 1, name: 'Mercimek Çorbası', price: 16, category: 'ÇORBALAR', image: '🍲', available: true },
+      { id: 2, name: 'Ezogelin Çorbası', price: 16, category: 'ÇORBALAR', image: '🍲', available: true },
+      { id: 3, name: 'Yayla Çorbası', price: 30, category: 'ÇORBALAR', image: '🍲', available: true },
+      { id: 4, name: 'Tavuk Suyu Çorbası', price: 36, category: 'ÇORBALAR', image: '🍲', available: true },
+      { id: 5, name: 'İşkembe Çorbası', price: 36, category: 'ÇORBALAR', image: '🍲', available: true },
+      { id: 6, name: 'Kellepaça Çorbası', price: 36, category: 'ÇORBALAR', image: '🍲', available: true },
+      { id: 7, name: 'Çürük Çorbası', price: 40, category: 'ÇORBALAR', image: '🍲', available: true },
+      { id: 8, name: 'Balık Çorbası', price: 40, category: 'ÇORBALAR', image: '🍲', available: true },
+      { id: 9, name: 'Humus', price: 25, category: 'MEZELER', image: '🥗', available: true },
+      { id: 10, name: 'Cacık', price: 20, category: 'MEZELER', image: '🥗', available: true },
+      { id: 11, name: 'Haydari', price: 25, category: 'MEZELER', image: '🥗', available: true },
+      { id: 12, name: 'Patlıcan Salatası', price: 30, category: 'MEZELER', image: '🥗', available: true },
+      { id: 13, name: 'Çoban Salata', price: 35, category: 'SALATALAR', image: '🥗', available: true },
+      { id: 14, name: 'Mevsim Salata', price: 30, category: 'SALATALAR', image: '🥗', available: true },
+      { id: 15, name: 'Sezar Salata', price: 45, category: 'SALATALAR', image: '🥗', available: true },
+      { id: 16, name: 'Kola', price: 15, category: 'İÇECEKLER', image: '🥤', available: true },
+      { id: 17, name: 'Fanta', price: 15, category: 'İÇECEKLER', image: '🥤', available: true },
+      { id: 18, name: 'Ayran', price: 10, category: 'İÇECEKLER', image: '🥤', available: true },
+      { id: 19, name: 'Su', price: 5, category: 'İÇECEKLER', image: '💧', available: true },
+      { id: 20, name: 'Adana Kebap', price: 150, category: 'ANA YEMEKLER', image: '🍖', available: true },
+      { id: 21, name: 'Urfa Kebap', price: 150, category: 'ANA YEMEKLER', image: '🍖', available: true },
+      { id: 22, name: 'Tavuk Şiş', price: 120, category: 'ANA YEMEKLER', image: '🍗', available: true },
+      { id: 23, name: 'Köfte', price: 100, category: 'ANA YEMEKLER', image: '🍖', available: true },
+      { id: 24, name: 'Piso Steak', price: 370, category: 'ANA YEMEKLER', image: '🥩', available: true },
+      { id: 25, name: 'Baklava', price: 60, category: 'TATLILAR', image: '🍰', available: true },
+      { id: 26, name: 'Künefe', price: 80, category: 'TATLILAR', image: '🍰', available: true },
+      { id: 27, name: 'Sütlaç', price: 40, category: 'TATLILAR', image: '🍮', available: true },
+      { id: 28, name: 'Fırın Sütlaç', price: 45, category: 'TATLILAR', image: '🍮', available: true },
+    ]);
+  }, []);
+
+  const categories = ['MENÜLER', 'ANA YEMEKLER', 'ÇORBALAR', 'MEZELER', 'SALATALAR', 'İÇECEKLER', 'TATLILAR'];
+
+  useEffect(() => {
+    const total = cart.reduce((sum, item) => sum + item.totalPrice, 0);
+    setTotalAmount(total);
+  }, [cart]);
+
+  const filteredProducts = products.filter(product => 
+    product.category === selectedCategory &&
+    product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const addToCart = (product: Product) => {
+    const existingItem = cart.find(item => item.productId === product.id);
+    if (existingItem) {
+      setCart(cart.map(item =>
+        item.productId === product.id
+          ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * item.price }
+          : item
+      ));
+    } else {
+      const newItem: CartItem = {
+        id: Date.now(),
+        productId: product.id,
+        productName: product.name,
+        quantity: 1,
+        price: product.price,
+        totalPrice: product.price
+      };
+      setCart([...cart, newItem]);
+    }
+  };
+
+  const updateQuantity = (itemId: number, change: number) => {
+    const updatedCart = cart.map(item => {
+      if (item.id === itemId) {
+        const newQuantity = item.quantity + change;
+        if (newQuantity <= 0) {
+          return null;
+        }
+        return { ...item, quantity: newQuantity, totalPrice: newQuantity * item.price };
+      }
+      return item;
+    }).filter(Boolean) as CartItem[];
+    
+    setCart(updatedCart);
+  };
+
+  const handleProceedToPayment = () => {
+    if (cart.length > 0) {
+      localStorage.setItem('quickSaleCart', JSON.stringify({
+        items: cart,
+        totalAmount: totalAmount
+      }));
+      navigate('/payment');
+    }
+  };
+
+  return (
+    <div className="table-detail-page">
+      <button className="theme-toggle" onClick={toggleTheme}>
+        {theme === 'light' ? <Moon size={24} /> : <Sun size={24} />}
+      </button>
+
+      {/* Header */}
+      <header className="detail-header">
+        <div className="header-left">
+          <button 
+            className="back-btn" 
+            onClick={() => navigate('/')}
+            title="Ana sayfaya dön"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="table-title">Hızlı Satış</h1>
+        </div>
+
+        <div className="search-box">
+          <Search size={18} />
+          <input 
+            type="text" 
+            placeholder="Ara" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="header-actions">
+          <span className="user-badge">👤 {currentUser?.name || 'Kullanıcı Seçin'}</span>
+          <button 
+            className="change-user-btn"
+            onClick={() => openUserSelect()}
+          >
+            DEĞİŞTİR
+          </button>
+        </div>
+      </header>
+
+      <div className="detail-content">
+        {/* Left Panel - Sepet/Cart */}
+        <aside className="cart-panel">
+          <div className="cart-items">
+            {cart.length === 0 ? (
+              <div className="empty-cart">
+                <p>Adisyon Boş</p>
+              </div>
+            ) : (
+              cart.map((item) => (
+                <div key={item.id} className="cart-item">
+                  <span className="quantity">{item.quantity}×</span>
+                  <div 
+                    className="item-details"
+                    onClick={() => updateQuantity(item.id, 1)}
+                  >
+                    <div className="item-name">{item.productName}</div>
+                    <div className="item-price">₺{item.totalPrice.toFixed(2)}</div>
+                  </div>
+                  
+                  <button 
+                    className="qty-btn minus"
+                    onClick={() => updateQuantity(item.id, -1)}
+                    aria-label={`${item.productName} ürününün miktarını azalt`}
+                  >
+                    <Minus size={16} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="cart-footer">
+            <div className="cart-actions">
+              <div className="cart-total">
+                <span className="total-amount">₺{totalAmount.toFixed(2)}</span>
+              </div>
+              <button 
+                className="pay-button"
+                onClick={handleProceedToPayment}
+                disabled={cart.length === 0}
+              >
+                ÖDEME AL
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Right Panel - Ürünler */}
+        <main className="products-panel">
+          {/* Kategori Menüsü - Sağ Sidebar */}
+          <div className="category-sidebar">
+            {categories.map((category) => (
+              <button
+                key={category}
+                className={`category-btn ${selectedCategory === category ? 'active' : ''}`}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          {/* Ürün Grid */}
+          <div className="products-grid">
+            {filteredProducts.map((product) => (
+              <div 
+                key={product.id} 
+                className={`product-card ${!product.available ? 'unavailable' : ''}`}
+                onClick={() => product.available && addToCart(product)}
+              >
+                <div className="product-image">{product.image}</div>
+                <div className="product-info">
+                  <h3 className="product-name">{product.name}</h3>
+                  <div className="product-footer">
+                    <span className="product-price">₺{product.price}</span>
+                    {!product.available && (
+                      <span className="stock-badge">Stokta Yok</span>
+                    )}
+                    {product.available && (
+                      <button 
+                        className="add-btn"
+                        aria-label={`${product.name} ürününü sepete ekle`}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default QuickSale;
