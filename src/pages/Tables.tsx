@@ -4,6 +4,8 @@ import { ArrowLeft, Moon, Sun, Grid3x3, LayoutGrid, LogOut } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import { Table } from '../types';
+import { tableService } from '../services/tableService';
+import { cartService } from '../services/cartService';
 import { createPortal } from 'react-dom';
 import './Tables.css';
 
@@ -85,40 +87,8 @@ const Tables = () => {
   const loadTables = async () => {
     try {
       setLoading(true);
-      
-            // Mock data
-      const mockTables: Table[] = [
-        // Bahçe masaları
-        ...Array.from({ length: 8 }, (_, i) => ({
-          id: i + 1,
-          tableNumber: `Bahçe ${i + 1}`,
-          capacity: Math.floor(Math.random() * 4) + 2,
-          status: ['available', 'occupied', 'reserved'][Math.floor(Math.random() * 3)] as Table['status'],
-          currentGuests: Math.floor(Math.random() * 4) + 1,
-          area: 'bahce' as 'bahce'
-        })),
-        // Salon masaları
-        ...Array.from({ length: 8 }, (_, i) => ({
-          id: i + 9,
-          tableNumber: `Salon ${i + 1}`,
-          capacity: Math.floor(Math.random() * 4) + 2,
-          status: ['available', 'occupied', 'reserved'][Math.floor(Math.random() * 3)] as Table['status'],
-          currentGuests: Math.floor(Math.random() * 4) + 1,
-          area: 'salon' as 'salon'
-        })),
-        // Kat masaları
-        ...Array.from({ length: 8 }, (_, i) => ({
-          id: i + 17,
-          tableNumber: `Kat ${i + 1}`,
-          capacity: Math.floor(Math.random() * 4) + 2,
-          status: ['available', 'occupied', 'reserved'][Math.floor(Math.random() * 3)] as Table['status'],
-          currentGuests: Math.floor(Math.random() * 4) + 1,
-          area: 'kat' as 'kat'
-        }))
-      ];
-      
-      console.log('Tables loaded:', mockTables.filter(t => t.status === 'occupied').map(t => ({ id: t.id, status: t.status, guests: t.currentGuests })));
-      setTables(mockTables);
+      const list = await tableService.getAllTables();
+      setTables(list);
     } catch (err) {
       console.error(err);
     } finally {
@@ -127,14 +97,23 @@ const Tables = () => {
   };
 
   const loadOrders = () => {
-    const mockOrders: TableOrder[] = [
-      { id: 1, tableNumber: 'Salon 8', time: '17:43', amount: 156.00, waiter: currentUser?.name || 'Atanmadı' },
-      { id: 2, tableNumber: 'Salon 10', time: '17:25', amount: 269.00, waiter: currentUser?.name || 'Atanmadı' },
-      { id: 3, tableNumber: 'Salon 6', time: '17:14', amount: 177.00, waiter: currentUser?.name || 'Atanmadı' },
-      { id: 4, tableNumber: 'Fatih D.', time: '16:52', amount: 645.00 },
-      { id: 5, tableNumber: 'Salon 2', time: '16:26', amount: 115.00, waiter: currentUser?.name || 'Atanmadı' },
-    ];
-    setOrders(mockOrders);
+    // Try to load recent carts (treat them as orders)
+    (async () => {
+      try {
+        const carts = await cartService.getList();
+        const mapped = (carts || []).map((c: any) => ({
+          id: c.id,
+          tableNumber: c.tableNumber || `Masa ${c.tableId ?? c.id}`,
+          time: (c.created_at || c.createdAt || '').slice(11,16) || '',
+          amount: Number(c.totalAmount ?? c.total_amount ?? 0),
+          waiter: c.waiter_name || c.waiter || currentUser?.name
+        }));
+        setOrders(mapped);
+      } catch (err) {
+        console.warn('Orders yüklenemedi, fallback mock kullanılıyor', err);
+        setOrders([]);
+      }
+    })();
   };
 
   const getStatusColor = (status: Table['status']) => {

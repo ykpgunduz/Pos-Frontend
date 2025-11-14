@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-// API Base URL - sonradan güncellenecek
-const API_BASE_URL = 'http://localhost:8000/api';
+// API Base URL - use Vite env var when available so dev/prod can be configured
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'https://api.harpysocial.com/api';
 
 class ApiService {
   private axiosInstance: AxiosInstance;

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -19,6 +19,7 @@ import {
   Cookie
 } from 'lucide-react';
 import { Product, Category } from '../types';
+import { productService } from '../services/productService';
 import './Products.css';
 
 /**
@@ -35,117 +36,8 @@ const Products = () => {
   const navigate = useNavigate();
 
   // States
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: 1,
-      name: 'Türk Kahvesi',
-      price: 35,
-      category: 'sicak-icecekler',
-      image: '☕',
-      available: true,
-      stock: 50,
-      description: 'Geleneksel Türk kahvesi'
-    },
-    {
-      id: 2,
-      name: 'Espresso',
-      price: 30,
-      category: 'sicak-icecekler',
-      image: '☕',
-      available: true,
-      stock: 45
-    },
-    {
-      id: 3,
-      name: 'Cappuccino',
-      price: 40,
-      category: 'sicak-icecekler',
-      image: '☕',
-      available: true,
-      stock: 38
-    },
-    {
-      id: 4,
-      name: 'Filtre Kahve',
-      price: 32,
-      category: 'sicak-icecekler',
-      image: '☕',
-      available: true,
-      stock: 60
-    },
-    {
-      id: 5,
-      name: 'Limonata',
-      price: 25,
-      category: 'soguk-icecekler',
-      image: '🍋',
-      available: true,
-      stock: 30
-    },
-    {
-      id: 6,
-      name: 'Çay',
-      price: 15,
-      category: 'sicak-icecekler',
-      image: '🫖',
-      available: true,
-      stock: 100
-    },
-    {
-      id: 7,
-      name: 'Tost',
-      price: 45,
-      category: 'yiyecekler',
-      image: '🥪',
-      available: true,
-      stock: 25
-    },
-    {
-      id: 8,
-      name: 'Sıcak Çikolata',
-      price: 38,
-      category: 'sicak-icecekler',
-      image: '🍫',
-      available: false,
-      stock: 0
-    },
-    {
-      id: 9,
-      name: 'Milkshake',
-      price: 45,
-      category: 'soguk-icecekler',
-      image: '🥤',
-      available: true,
-      stock: 20
-    },
-    {
-      id: 10,
-      name: 'Cheesecake',
-      price: 55,
-      category: 'tatlilar',
-      image: '🍰',
-      available: true,
-      stock: 15
-    },
-    {
-      id: 11,
-      name: 'Pasta',
-      price: 50,
-      category: 'yiyecekler',
-      image: '🍝',
-      available: true,
-      stock: 18
-    },
-    {
-      id: 12,
-      name: 'Pizza Dilim',
-      price: 40,
-      category: 'yiyecekler',
-      image: '🍕',
-      available: true,
-      stock: 22
-    }
-  ]);
+  // Başlangıçta boş; bileşen mount olduğunda API'den yüklenecek
+  const [products, setProducts] = useState<Product[]>([]);
   
   const [selectedCategory, setSelectedCategory] = useState<string>('tumu');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -157,10 +49,8 @@ const Products = () => {
     name: '',
     price: 0,
     category: 'sicak-icecekler',
-    image: '📦',
     available: true,
-    stock: 0,
-    description: ''
+    stock: 0
   });
 
   // Categories
@@ -198,10 +88,8 @@ const Products = () => {
       name: '',
       price: 0,
       category: 'sicak-icecekler',
-      image: '📦',
       available: true,
-      stock: 0,
-      description: ''
+      stock: 0
     });
     setShowModal(true);
   }, []);
@@ -212,19 +100,40 @@ const Products = () => {
     setShowModal(true);
   }, []);
 
-  const handleDelete = useCallback((productId: number) => {
-    if (window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) {
-      setProducts(prev => prev.filter(p => p.id !== productId));
+  const handleDelete = useCallback(async (productId: number) => {
+    if (!window.confirm('Bu ürünü silmek istediğinizden emin misiniz?')) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await productService.remove(productId);
+      // Yeniden yükle
+      const updated = await productService.getList();
+      setProducts(updated);
+    } catch (err) {
+      console.error('Ürün silme hatası', err);
+      setError('Ürün silinirken hata oluştu.');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const handleToggleAvailability = useCallback((productId: number) => {
-    setProducts(prev => 
-      prev.map(p => 
-        p.id === productId ? { ...p, available: !p.available } : p
-      )
-    );
-  }, []);
+  const handleToggleAvailability = useCallback(async (productId: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const target = products.find(p => p.id === productId);
+      if (!target) throw new Error('Ürün bulunamadı');
+      const updatedPayload = { ...target, available: !target.available } as Partial<Product>;
+      await productService.update(productId, updatedPayload);
+      const updated = await productService.getList();
+      setProducts(updated);
+    } catch (err) {
+      console.error('Durum güncelleme hatası', err);
+      setError('Ürün durumunu güncellerken hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  }, [products]);
 
   const handleModalClose = useCallback(() => {
     setShowModal(false);
@@ -233,50 +142,69 @@ const Products = () => {
       name: '',
       price: 0,
       category: 'sicak-icecekler',
-      image: '📦',
       available: true,
-      stock: 0,
-      description: ''
+      stock: 0
     });
   }, []);
 
-  const handleFormSubmit = useCallback((e: React.FormEvent) => {
+  const handleFormSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.price) {
       setError('Lütfen tüm zorunlu alanları doldurun');
       return;
     }
 
-    if (editingProduct) {
-      // Update existing product
-      setProducts(prev => 
-        prev.map(p => 
-          p.id === editingProduct.id 
-            ? { ...p, ...formData } as Product
-            : p
-        )
-      );
-    } else {
-      // Add new product
-      const newProduct: Product = {
-        id: Date.now(),
-        name: formData.name!,
-        price: formData.price!,
-        category: formData.category!,
-        image: formData.image || '📦',
-        available: formData.available ?? true,
-        stock: formData.stock || 0,
-        description: formData.description || ''
-      };
-      setProducts(prev => [newProduct, ...prev]);
-    }
+    setLoading(true);
+    setError(null);
+    try {
+      if (editingProduct) {
+        // Update via API
+        await productService.update(editingProduct.id, formData as Partial<Product>);
+      } else {
+        // Create via API
+        await productService.create(formData as Partial<Product>);
+      }
 
-    handleModalClose();
+      // Yeniden yükle
+      const updated = await productService.getList();
+      setProducts(updated);
+      handleModalClose();
+    } catch (err) {
+      console.error('Ürün kaydetme hatası', err);
+      setError('Ürün kaydedilirken hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
   }, [formData, editingProduct, handleModalClose]);
 
   const handleFormChange = useCallback((field: keyof Product, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  // Load products from remote API on mount
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProducts = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const productList = await productService.getList();
+        if (mounted) setProducts(productList);
+      } catch (err: any) {
+        console.error('Ürün yükleme hatası:', err);
+        if (mounted) setError('Ürünler yüklenirken bir hata oluştu.');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadProducts();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Loading state
@@ -386,7 +314,7 @@ const Products = () => {
             <table className="products-table" role="table" aria-label="Ürünler listesi">
               <thead>
                 <tr>
-                  <th>Ürün</th>
+                  <th>Ürün Adı</th>
                   <th>Kategori</th>
                   <th>Fiyat</th>
                   <th>Stok</th>
@@ -397,15 +325,7 @@ const Products = () => {
               <tbody>
                 {filteredProducts.map((product) => (
                   <tr key={product.id} className={!product.available ? 'inactive' : ''}>
-                    <td className="product-info">
-                      <div className="product-image">{product.image}</div>
-                      <div className="product-details">
-                        <span className="product-name">{product.name}</span>
-                        {product.description && (
-                          <span className="product-description">{product.description}</span>
-                        )}
-                      </div>
-                    </td>
+                    <td className="product-name-cell">{product.name}</td>
                     <td>
                       <span className="category-badge">
                         {categories.find(c => c.id === product.category)?.name || product.category}
@@ -443,14 +363,14 @@ const Products = () => {
                           onClick={() => handleEdit(product)}
                           aria-label={`${product.name} ürününü düzenle`}
                         >
-                          <Edit2 size={16} />
+                          <Edit2 size={18} />
                         </button>
                         <button
                           className="action-btn delete-btn"
                           onClick={() => handleDelete(product.id)}
                           aria-label={`${product.name} ürününü sil`}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </td>
@@ -478,30 +398,16 @@ const Products = () => {
             </div>
             
             <form className="modal-body" onSubmit={handleFormSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="product-name">Ürün Adı *</label>
-                  <input
-                    id="product-name"
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => handleFormChange('name', e.target.value)}
-                    placeholder="Örn: Türk Kahvesi"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="product-image">Emoji/İkon</label>
-                  <input
-                    id="product-image"
-                    type="text"
-                    value={formData.image}
-                    onChange={(e) => handleFormChange('image', e.target.value)}
-                    placeholder="☕"
-                    maxLength={2}
-                  />
-                </div>
+              <div className="form-group">
+                <label htmlFor="product-name">Ürün Adı *</label>
+                <input
+                  id="product-name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => handleFormChange('name', e.target.value)}
+                  placeholder="Örn: Türk Kahvesi"
+                  required
+                />
               </div>
 
               <div className="form-row">
@@ -536,7 +442,7 @@ const Products = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="product-stock">Stok Miktarı</label>
+                  <label htmlFor="product-stock">Stok Miktarı *</label>
                   <input
                     id="product-stock"
                     type="number"
@@ -544,19 +450,9 @@ const Products = () => {
                     onChange={(e) => handleFormChange('stock', parseInt(e.target.value))}
                     placeholder="0"
                     min="0"
+                    required
                   />
                 </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="product-description">Açıklama</label>
-                <textarea
-                  id="product-description"
-                  value={formData.description}
-                  onChange={(e) => handleFormChange('description', e.target.value)}
-                  placeholder="Ürün hakkında kısa açıklama..."
-                  rows={3}
-                />
               </div>
 
               <div className="form-group checkbox-group">

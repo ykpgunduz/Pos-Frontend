@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, Minus, Trash2, Moon, Sun, Search } from 'lucide-react'
 import { useState, useEffect } from 'react';
 import './QuickSale.css';
 import { Product, OrderItem } from '../types';
+import { productService } from '../services/productService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 
@@ -20,38 +21,18 @@ const QuickSale = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [totalAmount, setTotalAmount] = useState<number>(0);
 
-  // Örnek ürün verileri (gerçek API entegrasyonu yapılana kadar)
   useEffect(() => {
-    setProducts([
-      { id: 1, name: 'Mercimek Çorbası', price: 16, category: 'ÇORBALAR', image: '🍲', available: true },
-      { id: 2, name: 'Ezogelin Çorbası', price: 16, category: 'ÇORBALAR', image: '🍲', available: true },
-      { id: 3, name: 'Yayla Çorbası', price: 30, category: 'ÇORBALAR', image: '🍲', available: true },
-      { id: 4, name: 'Tavuk Suyu Çorbası', price: 36, category: 'ÇORBALAR', image: '🍲', available: true },
-      { id: 5, name: 'İşkembe Çorbası', price: 36, category: 'ÇORBALAR', image: '🍲', available: true },
-      { id: 6, name: 'Kellepaça Çorbası', price: 36, category: 'ÇORBALAR', image: '🍲', available: true },
-      { id: 7, name: 'Çürük Çorbası', price: 40, category: 'ÇORBALAR', image: '🍲', available: true },
-      { id: 8, name: 'Balık Çorbası', price: 40, category: 'ÇORBALAR', image: '🍲', available: true },
-      { id: 9, name: 'Humus', price: 25, category: 'MEZELER', image: '🥗', available: true },
-      { id: 10, name: 'Cacık', price: 20, category: 'MEZELER', image: '🥗', available: true },
-      { id: 11, name: 'Haydari', price: 25, category: 'MEZELER', image: '🥗', available: true },
-      { id: 12, name: 'Patlıcan Salatası', price: 30, category: 'MEZELER', image: '🥗', available: true },
-      { id: 13, name: 'Çoban Salata', price: 35, category: 'SALATALAR', image: '🥗', available: true },
-      { id: 14, name: 'Mevsim Salata', price: 30, category: 'SALATALAR', image: '🥗', available: true },
-      { id: 15, name: 'Sezar Salata', price: 45, category: 'SALATALAR', image: '🥗', available: true },
-      { id: 16, name: 'Kola', price: 15, category: 'İÇECEKLER', image: '🥤', available: true },
-      { id: 17, name: 'Fanta', price: 15, category: 'İÇECEKLER', image: '🥤', available: true },
-      { id: 18, name: 'Ayran', price: 10, category: 'İÇECEKLER', image: '🥤', available: true },
-      { id: 19, name: 'Su', price: 5, category: 'İÇECEKLER', image: '💧', available: true },
-      { id: 20, name: 'Adana Kebap', price: 150, category: 'ANA YEMEKLER', image: '🍖', available: true },
-      { id: 21, name: 'Urfa Kebap', price: 150, category: 'ANA YEMEKLER', image: '🍖', available: true },
-      { id: 22, name: 'Tavuk Şiş', price: 120, category: 'ANA YEMEKLER', image: '🍗', available: true },
-      { id: 23, name: 'Köfte', price: 100, category: 'ANA YEMEKLER', image: '🍖', available: true },
-      { id: 24, name: 'Piso Steak', price: 370, category: 'ANA YEMEKLER', image: '🥩', available: true },
-      { id: 25, name: 'Baklava', price: 60, category: 'TATLILAR', image: '🍰', available: true },
-      { id: 26, name: 'Künefe', price: 80, category: 'TATLILAR', image: '🍰', available: true },
-      { id: 27, name: 'Sütlaç', price: 40, category: 'TATLILAR', image: '🍮', available: true },
-      { id: 28, name: 'Fırın Sütlaç', price: 45, category: 'TATLILAR', image: '🍮', available: true },
-    ]);
+    let mounted = true;
+    const load = async () => {
+      try {
+        const list = await productService.getList();
+        if (mounted) setProducts(list);
+      } catch (err) {
+        console.error('QuickSale ürün yükleme hatası', err);
+      }
+    };
+    load();
+    return () => { mounted = false; };
   }, []);
 
   const categories = ['MENÜLER', 'ANA YEMEKLER', 'ÇORBALAR', 'MEZELER', 'SALATALAR', 'İÇECEKLER', 'TATLILAR'];

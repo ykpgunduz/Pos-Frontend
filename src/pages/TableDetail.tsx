@@ -4,6 +4,8 @@ import { ArrowLeft, Plus, Minus, Trash2, Moon, Sun, Search } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import { OrderItem, Product } from '../types';
+import { productService } from '../services/productService';
+import { cartService } from '../services/cartService';
 import './TableDetail.css';
 
 interface CartItem extends OrderItem {
@@ -21,7 +23,7 @@ const TableDetail = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
 
-  // Mock kategoriler
+  // Kategoriler (could be fetched from API later)
   const categories = [
     'MENÜLER',
     'ANA YEMEKLER',
@@ -34,39 +36,43 @@ const TableDetail = () => {
     'TATLLAR'
   ];
 
-  // Mock ürünler
-  const mockProducts: Product[] = [
-    { id: 1, name: 'Piso Steak', price: 370, category: 'ANA YEMEKLER', image: '🥩', available: true },
-    { id: 2, name: 'Filet Mignon', price: 180, category: 'ANA YEMEKLER', image: '🥩', available: true },
-    { id: 3, name: 'Ribeye Steak', price: 340, category: 'ANA YEMEKLER', image: '🥩', available: true },
-    { id: 4, name: 'Dou Steak', price: 520, category: 'ANA YEMEKLER', image: '🥩', available: true },
-    { id: 5, name: 'New York Steak', price: 240, category: 'ANA YEMEKLER', image: '🥩', available: true },
-    { id: 6, name: 'Dou Filet Steak', price: 130, category: 'ANA YEMEKLER', image: '🥩', available: true },
-    { id: 7, name: 'Rack Lamb', price: 180, category: 'ANA YEMEKLER', image: '🥩', available: true },
-    { id: 8, name: 'Wagyu Tomahawk', price: 610, category: 'ANA YEMEKLER', image: '🥩', available: true },
-    { id: 9, name: 'Golden 24 Wagyu Steak', price: 740, category: 'ANA YEMEKLER', image: '🥩', available: true },
-    { id: 10, name: 'Canada Bacon', price: 119, category: 'ANA YEMEKLER', image: '🥓', available: true },
-    { id: 11, name: 'Japanese Wagyu Rib Eye', price: 475, category: 'ANA YEMEKLER', image: '🥩', available: false },
-    { id: 12, name: 'Turf & Surf', price: 105, category: 'ANA YEMEKLER', image: '🦞', available: true },
-    { id: 13, name: 'Mercimek Çorbası', price: 45, category: 'ÇORBALAR', image: '🍲', available: true },
-    { id: 14, name: 'Tavuk Suyu Çorbası', price: 40, category: 'ÇORBALAR', image: '🍲', available: true },
-    { id: 15, name: 'Humus', price: 65, category: 'MEZELER', image: '🥙', available: true },
-    { id: 16, name: 'Acuka', price: 55, category: 'MEZELER', image: '🌶️', available: true },
-  ];
-
   useEffect(() => {
-    setProducts(mockProducts);
-    // Mock sepet verisi - masa dolu ise önceki siparişleri göster
-    const mockCart: CartItem[] = [
-      { id: 1, productId: 1, productName: 'İşkembe Çorbası', quantity: 2, price: 36, totalPrice: 72, notes: '' },
-      { id: 2, productId: 2, productName: 'İstakoz Izgara', quantity: 1, price: 95, totalPrice: 95, notes: '' },
-      { id: 3, productId: 3, productName: 'Adabeyi Buğulama', quantity: 1, price: 124.90, totalPrice: 124.90, notes: '' },
-      { id: 4, productId: 4, productName: 'Peynirli Salata', quantity: 1, price: 55, totalPrice: 55, notes: '' },
-      { id: 5, productId: 5, productName: 'Beylerbeyi Göbek 35', quantity: 1, price: 370, totalPrice: 370, notes: '' },
-      { id: 6, productId: 6, productName: 'Fırında Sütlaç', quantity: 2, price: 35, totalPrice: 70, notes: '' },
-    ];
-    setCart(mockCart);
-  }, []);
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const list = await productService.getList();
+        if (mounted) setProducts(list);
+
+        // Try to load cart by table id if provided
+        if (tableId) {
+          try {
+            const cartId = Number(tableId);
+            const cartData = await cartService.getById(cartId);
+            if (mounted && cartData && Array.isArray(cartData.items)) {
+              const items = cartData.items.map((it: any, idx: number) => ({
+                id: it.id ?? Date.now() + idx,
+                productId: it.product_id ?? it.productId,
+                productName: it.product_name ?? it.productName ?? it.name,
+                quantity: it.quantity ?? 1,
+                price: it.price ?? it.unit_price ?? 0,
+                totalPrice: (it.quantity ?? 1) * (it.price ?? it.unit_price ?? 0),
+                notes: it.notes ?? ''
+              }));
+              setCart(items);
+            }
+          } catch (err) {
+            console.warn('Masa için sepet yüklenemedi', err);
+          }
+        }
+      } catch (err) {
+        console.error('TableDetail ürün yükleme hatası', err);
+      }
+    };
+
+    load();
+    return () => { mounted = false; };
+  }, [tableId]);
 
   const filteredProducts = products.filter(product => 
     product.category === selectedCategory &&

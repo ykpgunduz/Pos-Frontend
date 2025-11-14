@@ -139,8 +139,8 @@
 
 /* Header */
 .home-header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 1.25rem 2rem;
   background: var(--card-bg);
@@ -151,7 +151,20 @@
 .header-left {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  justify-content: flex-start;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-right {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .logo {
@@ -169,18 +182,14 @@
 }
 
 .restaurant-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  padding: 0.4rem 1rem;
-  background: var(--bg-tertiary);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 0.5rem 1.5rem;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
   border-radius: var(--radius-lg);
-}
-
-.header-right {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
 }
 
 .status-item {
@@ -233,6 +242,38 @@
 .change-btn:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+/* Logout Button */
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: rgba(239, 68, 68, 0.1);
+  border: 2px solid var(--danger);
+  border-radius: var(--radius-md);
+  color: var(--danger);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: var(--danger);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.logout-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.logout-btn svg {
+  display: block;
 }
 
 /* Content */
@@ -726,6 +767,11 @@
     grid-template-columns: repeat(3, 1fr);
   }
 
+  .home-header {
+    grid-template-columns: auto 1fr auto;
+    padding: 1rem 1.5rem;
+  }
+
   .header-right {
     gap: 0.75rem;
   }
@@ -735,7 +781,8 @@
   }
 
   .restaurant-name {
-    display: none;
+    font-size: 0.9rem;
+    padding: 0.4rem 1.25rem;
   }
 
   .notifications-list {
@@ -832,10 +879,26 @@
 @media (max-width: 480px) {
   .home-header {
     padding: 0.75rem;
+    grid-template-columns: auto 1fr auto;
   }
   
   .logo {
     font-size: 1.1rem;
+  }
+
+  .restaurant-name {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.875rem;
+  }
+
+  .logout-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .logout-btn svg {
+    width: 18px;
+    height: 18px;
   }
 
   .theme-toggle-header {

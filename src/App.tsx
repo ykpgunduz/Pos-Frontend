@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { UserProvider } from './contexts/UserContext';
 import UserSelect from './components/UserSelect';
+import Login from './pages/Login';
 import Home from './pages/Home';
 import Tables from './pages/Tables';
 import TableDetail from './pages/TableDetail';
@@ -22,6 +23,7 @@ function App() {
         <Router>
           <UserSelect />
           <Routes>
+            <Route path="/login" element={<Login />} />
             <Route path="/" element={<Home />} />
             <Route path="/tables" element={<Tables />} />
             <Route path="/tables/:tableId" element={<TableDetail />} />

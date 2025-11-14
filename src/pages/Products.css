@@ -367,51 +367,17 @@
 }
 
 .products-table td {
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   font-size: 0.9rem;
   color: var(--text-primary);
   vertical-align: middle;
 }
 
-/* Product Info Column */
-.product-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.product-image {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.product-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.product-name {
+/* Product Name Cell */
+.product-name-cell {
   font-weight: 600;
   font-size: 0.95rem;
   color: var(--text-primary);
-}
-
-.product-description {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Category Badge */
@@ -511,6 +477,7 @@
   width: 18px;
   height: 18px;
   stroke-width: 2.5;
+  display: block;
 }
 
 .edit-btn {
@@ -882,21 +849,7 @@
   
   .products-table th,
   .products-table td {
-    padding: 0.875rem 0.75rem;
-  }
-  
-  .product-info {
-    gap: 0.75rem;
-  }
-  
-  .product-image {
-    width: 40px;
-    height: 40px;
-    font-size: 1.25rem;
-  }
-  
-  .product-name {
-    font-size: 0.9rem;
+    padding: 0.625rem 0.5rem;
   }
   
   .action-buttons {

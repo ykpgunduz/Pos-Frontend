@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
+import { authService } from '../services/authService';
 import { 
   UtensilsCrossed, 
   ShoppingBag, 
@@ -16,7 +17,8 @@ import {
   Sun,
   Loader2,
   AlertCircle,
-  RefreshCcw
+  RefreshCcw,
+  LogOut
 } from 'lucide-react';
 import './Home.css';
 
@@ -86,6 +88,13 @@ const Home = () => {
     setLoading(true);
     setTimeout(() => setLoading(false), 800);
   }, []);
+
+  const handleLogout = useCallback(() => {
+    if (window.confirm('Çıkış yapmak istediğinizden emin misiniz?')) {
+      authService.logout();
+      navigate('/login');
+    }
+  }, [navigate]);
 
   const menuCards: MenuCard[] = useMemo(() => [
     {
@@ -206,8 +215,11 @@ const Home = () => {
         <header className="home-header">
           <div className="header-left">
             <h1 className="logo">HARPY <span>Pos</span></h1>
+          </div>
+          <div className="header-center">
             <span className="restaurant-name">UNDERGROUND CAFE</span>
           </div>
+          <div className="header-right"></div>
         </header>
         <div className="loading-state">
           <Loader2 className="spinner-icon" size={48} />
@@ -224,8 +236,11 @@ const Home = () => {
         <header className="home-header">
           <div className="header-left">
             <h1 className="logo">HARPY <span>Pos</span></h1>
+          </div>
+          <div className="header-center">
             <span className="restaurant-name">UNDERGROUND CAFE</span>
           </div>
+          <div className="header-right"></div>
         </header>
         <div className="error-state" role="alert">
           <AlertCircle size={48} />
@@ -250,9 +265,20 @@ const Home = () => {
       <header className="home-header">
         <div className="header-left">
           <h1 className="logo">HARPY <span>Pos</span></h1>
+        </div>
+        <div className="header-center">
           <span className="restaurant-name">UNDERGROUND CAFE</span>
         </div>
         <div className="header-right">
+          <button 
+            className="logout-btn" 
+            onClick={handleLogout} 
+            title="Çıkış Yap"
+            aria-label="Çıkış Yap"
+            type="button"
+          >
+            <LogOut size={20} strokeWidth={2} />
+          </button>
           <button 
             className="theme-toggle-header" 
             onClick={toggleTheme} 
