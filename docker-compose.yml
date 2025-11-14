@@ -1,5 +1,6 @@
 services:
   frontend:
+    container_name: pos-frontend
     build:
       context: .
       dockerfile: Dockerfile
