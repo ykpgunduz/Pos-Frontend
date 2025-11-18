@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { UserProvider } from './contexts/UserContext';
 import UserSelect from './components/UserSelect';
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Tables from './pages/Tables';
@@ -24,19 +25,19 @@ function App() {
           <UserSelect />
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Home />} />
-            <Route path="/tables" element={<Tables />} />
-            <Route path="/tables/:tableId" element={<TableDetail />} />
-            <Route path="/quick-sale" element={<QuickSale />} />
-            <Route path="/take-away" element={<TakeAway />} />
-            <Route path="/kitchen" element={<Kitchen />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/stock" element={<Stock />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/payment" element={<Payment />} />
-            <Route path="/payment/:orderId" element={<Payment />} />
+            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+            <Route path="/tables" element={<ProtectedRoute><Tables /></ProtectedRoute>} />
+            <Route path="/tables/:tableId" element={<ProtectedRoute><TableDetail /></ProtectedRoute>} />
+            <Route path="/quick-sale" element={<ProtectedRoute><QuickSale /></ProtectedRoute>} />
+            <Route path="/take-away" element={<ProtectedRoute><TakeAway /></ProtectedRoute>} />
+            <Route path="/kitchen" element={<ProtectedRoute><Kitchen /></ProtectedRoute>} />
+            <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+            <Route path="/stock" element={<ProtectedRoute><Stock /></ProtectedRoute>} />
+            <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
+            <Route path="/payment/:orderId" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
           </Routes>
         </Router>
       </UserProvider>

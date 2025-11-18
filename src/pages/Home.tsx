@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
-import { useUser } from '../contexts/UserContext';
 import { authService } from '../services/authService';
 import { 
   UtensilsCrossed, 
@@ -12,7 +11,7 @@ import {
   Archive, 
   Users, 
   BarChart3,
-  User,
+  User as UserIcon,
   Moon,
   Sun,
   Loader2,
@@ -20,6 +19,7 @@ import {
   RefreshCcw,
   LogOut
 } from 'lucide-react';
+import type { User } from '../types';
 import './Home.css';
 
 interface MenuCard {
@@ -47,56 +47,20 @@ interface Notification {
  * @a11y ✅ ARIA labels, keyboard navigation, semantic HTML
  * @performance ✅ useCallback, useMemo optimized
  */
-const Home = () => {
+const Home: React.FC = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { currentUser, openUserSelect } = useUser();
+  const [currentUser] = useState<User | null>(null);
 
-  // States
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Simulated data loading
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setLoading(false);
-      } catch (err) {
-        setError('Veri yüklenirken bir hata oluştu');
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  // useCallback for performance optimization
-  const handleCardClick = useCallback((path: string) => {
-    navigate(path);
-  }, [navigate]);
-
-  const handleUserChange = useCallback(() => {
-    openUserSelect();
-  }, [openUserSelect]);
-
-  const handleRetry = useCallback(() => {
-    setError(null);
-    setLoading(true);
-    setTimeout(() => setLoading(false), 800);
-  }, []);
-
-  const handleLogout = useCallback(() => {
-    if (window.confirm('Çıkış yapmak istediğinizden emin misiniz?')) {
+  const handleLogout = () => {
+    const confirmLogout = window.confirm('Çıkış yapmak istediğinize emin misiniz?');
+    if (confirmLogout) {
       authService.logout();
       navigate('/login');
     }
-  }, [navigate]);
+  };
 
-  const menuCards: MenuCard[] = useMemo(() => [
+  const menuCards: MenuCard[] = [
     {
       id: 'tables',
       title: 'Masalar',
@@ -153,9 +117,9 @@ const Home = () => {
       path: '/reports',
       gradient: 'var(--primary)',
     },
-  ], []);
+  ];
 
-  const notifications: Notification[] = useMemo(() => [
+  const notifications: Notification[] = [
     {
       id: 1,
       platform: 'Stok Uyarısı',
@@ -191,76 +155,21 @@ const Home = () => {
       time: '15:48',
       icon: '�',
     },
-  ], []);
+  ];
 
-  const currentTime = useMemo(() => new Date(), []);
-  const timeString = useMemo(() => 
-    currentTime.toLocaleTimeString('tr-TR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    }), [currentTime]
-  );
-  const dateString = useMemo(() => 
-    currentTime.toLocaleDateString('tr-TR', { 
-      day: 'numeric',
-      month: 'long',
-      weekday: 'long'
-    }), [currentTime]
-  );
-
-  // Loading State
-  if (loading) {
-    return (
-      <div className="home-container">
-        <header className="home-header">
-          <div className="header-left">
-            <h1 className="logo">HARPY <span>Pos</span></h1>
-          </div>
-          <div className="header-center">
-            <span className="restaurant-name">UNDERGROUND CAFE</span>
-          </div>
-          <div className="header-right"></div>
-        </header>
-        <div className="loading-state">
-          <Loader2 className="spinner-icon" size={48} />
-          <p>Yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error State
-  if (error) {
-    return (
-      <div className="home-container">
-        <header className="home-header">
-          <div className="header-left">
-            <h1 className="logo">HARPY <span>Pos</span></h1>
-          </div>
-          <div className="header-center">
-            <span className="restaurant-name">UNDERGROUND CAFE</span>
-          </div>
-          <div className="header-right"></div>
-        </header>
-        <div className="error-state" role="alert">
-          <AlertCircle size={48} />
-          <h2>Bir Hata Oluştu</h2>
-          <p>{error}</p>
-          <button 
-            onClick={handleRetry}
-            className="retry-btn"
-            aria-label="Tekrar dene"
-          >
-            <RefreshCcw size={18} />
-            Tekrar Dene
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const currentTime = new Date();
+  const timeString = currentTime.toLocaleTimeString('tr-TR', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+  const dateString = currentTime.toLocaleDateString('tr-TR', { 
+    day: 'numeric',
+    month: 'long',
+    weekday: 'long'
+  });
 
   return (
-    <div className="home-container">
+    <div className={`home-container ${theme}`}>
       {/* Header */}
       <header className="home-header">
         <div className="header-left">
@@ -293,11 +202,10 @@ const Home = () => {
             )}
           </button>
           <div className="status-item user-item">
-            <User size={18} />
+            <UserIcon size={18} />
             <span>{currentUser?.name || 'Kullanıcı Seçin'}</span>
             <button 
               className="change-btn"
-              onClick={handleUserChange}
               aria-label="Kullanıcı değiştir"
             >
               DEĞİŞTİR
@@ -347,7 +255,7 @@ const Home = () => {
               <button
                 key={card.id}
                 className="menu-card"
-                onClick={() => handleCardClick(card.path)}
+                onClick={() => navigate(card.path)}
                 aria-label={`${card.title} sayfasına git`}
               >
                 <div className="menu-icon" aria-hidden="true">{card.icon}</div>
@@ -370,7 +278,7 @@ const Home = () => {
           </button>
           <button 
             className="settings-btn"
-            onClick={() => handleCardClick('/settings')}
+            onClick={() => navigate('/settings')}
             aria-label="Ayarlar sayfasına git"
           >
             ⚙️ Ayarlar

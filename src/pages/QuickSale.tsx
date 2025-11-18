@@ -17,33 +17,88 @@ const QuickSale = () => {
   const { currentUser, openUserSelect } = useUser();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('ÇORBALAR');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Tümü');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [totalAmount, setTotalAmount] = useState<number>(0);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState<boolean>(true);
+  const [productsLoading, setProductsLoading] = useState<boolean>(false);
+  const [productsError, setProductsError] = useState<string | null>(null);
 
+  // Ürünleri seçili kategoriye göre sunucudan yükle
   useEffect(() => {
     let mounted = true;
     const load = async () => {
+      setProductsLoading(true);
+      setProductsError(null);
       try {
-        const list = await productService.getList();
+        // Eğer selectedCategory "Tümü" ise, category parametresini gönderme
+        const categoryParam = selectedCategory === 'Tümü' ? undefined : selectedCategory;
+        const list = await productService.getList({ 
+          category: categoryParam, 
+          search: searchQuery || undefined 
+        });
         if (mounted) setProducts(list);
-      } catch (err) {
+      } catch (err: any) {
         console.error('QuickSale ürün yükleme hatası', err);
+        if (mounted) setProductsError(err?.message || 'Ürünler yüklenirken hata oluştu');
+      } finally {
+        if (mounted) setProductsLoading(false);
       }
     };
+
+    // yüklemeyi yalnızca kategori seçildiğinde veya search değiştiğinde tetikle
     load();
     return () => { mounted = false; };
-  }, []);
+  }, [selectedCategory, searchQuery]);
 
-  const categories = ['MENÜLER', 'ANA YEMEKLER', 'ÇORBALAR', 'MEZELER', 'SALATALAR', 'İÇECEKLER', 'TATLILAR'];
+  useEffect(() => {
+    let mounted = true;
+    const defaults = ['MENÜLER', 'ANA YEMEKLER', 'ÇORBALAR', 'MEZELER', 'SALATALAR', 'İÇECEKLER', 'TATLILAR'];
+    const loadCategories = async () => {
+      try {
+        const cats = await productService.getCategories();
+        if (mounted) {
+          if (cats && cats.length > 0) {
+            // "Tümü" seçeneğini kategori listesinin başına ekle
+            const categoriesWithAll = ['Tümü', ...cats.map(c => (typeof c === 'string' ? c : String(c)))];
+            setCategories(categoriesWithAll);
+            // İlk kategori yüklenmesinde "Tümü" seçili olsun
+            if (!selectedCategory || selectedCategory === '') {
+              setSelectedCategory('Tümü');
+            }
+          } else {
+            const categoriesWithAll = ['Tümü', ...defaults];
+            setCategories(categoriesWithAll);
+            if (!selectedCategory || selectedCategory === '') {
+              setSelectedCategory('Tümü');
+            }
+          }
+        }
+      } catch (err) {
+        if (mounted) {
+          const categoriesWithAll = ['Tümü', ...defaults];
+          setCategories(categoriesWithAll);
+          if (!selectedCategory || selectedCategory === '') {
+            setSelectedCategory('Tümü');
+          }
+        }
+        console.error('Kategori yükleme hatası', err);
+      } finally {
+        if (mounted) setCategoriesLoading(false);
+      }
+    };
+    loadCategories();
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     const total = cart.reduce((sum, item) => sum + item.totalPrice, 0);
     setTotalAmount(total);
   }, [cart]);
 
-  const filteredProducts = products.filter(product => 
-    product.category === selectedCategory &&
+  // Sunucudan kategoriye göre filtrelenmiş ürünler geliyor; yine de arama kutusuna göre client-side filtre uygula
+  const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -66,6 +121,12 @@ const QuickSale = () => {
       };
       setCart([...cart, newItem]);
     }
+  };
+
+  // Her ürün için sepetteki miktarı hesapla
+  const getProductQuantityInCart = (productId: number): number => {
+    const item = cart.find(cartItem => cartItem.productId === productId);
+    return item ? item.quantity : 0;
   };
 
   const updateQuantity = (itemId: number, change: number) => {
@@ -150,7 +211,7 @@ const QuickSale = () => {
                     onClick={() => updateQuantity(item.id, 1)}
                   >
                     <div className="item-name">{item.productName}</div>
-                    <div className="item-price">₺{item.totalPrice.toFixed(2)}</div>
+                    <div className="item-price">{item.totalPrice.toFixed(2)}₺</div>
                   </div>
                   
                   <button 
@@ -168,7 +229,7 @@ const QuickSale = () => {
           <div className="cart-footer">
             <div className="cart-actions">
               <div className="cart-total">
-                <span className="total-amount">₺{totalAmount.toFixed(2)}</span>
+                <span className="total-amount">{totalAmount.toFixed(2)}₺</span>
               </div>
               <button 
                 className="pay-button"
@@ -198,32 +259,39 @@ const QuickSale = () => {
 
           {/* Ürün Grid */}
           <div className="products-grid">
-            {filteredProducts.map((product) => (
-              <div 
-                key={product.id} 
-                className={`product-card ${!product.available ? 'unavailable' : ''}`}
-                onClick={() => product.available && addToCart(product)}
-              >
-                <div className="product-image">{product.image}</div>
-                <div className="product-info">
-                  <h3 className="product-name">{product.name}</h3>
-                  <div className="product-footer">
-                    <span className="product-price">₺{product.price}</span>
-                    {!product.available && (
-                      <span className="stock-badge">Stokta Yok</span>
-                    )}
-                    {product.available && (
-                      <button 
-                        className="add-btn"
-                        aria-label={`${product.name} ürününü sepete ekle`}
-                      >
-                        <Plus size={14} />
-                      </button>
-                    )}
+            {filteredProducts.map((product) => {
+              const quantityInCart = getProductQuantityInCart(product.id);
+              
+              return (
+                <div 
+                  key={product.id} 
+                  className={`product-card ${!product.available ? 'unavailable' : ''}`}
+                  onClick={() => product.available && addToCart(product)}
+                >
+                  {quantityInCart > 0 && (
+                    <div className="quantity-badge">{quantityInCart}</div>
+                  )}
+                  <div className="product-image">{product.image}</div>
+                  <div className="product-info">
+                    <h3 className="product-name">{product.name}</h3>
+                    <div className="product-footer">
+                      <span className="product-price">{product.price}₺</span>
+                      {!product.available && (
+                        <span className="stock-badge">Stokta Yok</span>
+                      )}
+                      {product.available && (
+                        <button 
+                          className="add-btn-quick"
+                          aria-label={`${product.name} ürününü sepete ekle`}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </main>
       </div>

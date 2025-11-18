@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Table2, ShoppingCart, Settings } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Table2, ShoppingCart, Settings, LogOut } from 'lucide-react';
+import { authService } from '../services/authService';
 import './Layout.css';
 
 interface LayoutProps {
@@ -9,6 +10,12 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/login', { replace: true });
+  };
 
   const menuItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -46,6 +53,14 @@ const Layout = ({ children }: LayoutProps) => {
             <h2>Kafe Yönetim Sistemi</h2>
             <div className="user-info">
               <span>Admin</span>
+              <button 
+                onClick={handleLogout} 
+                className="logout-btn"
+                title="Çıkış Yap"
+                aria-label="Çıkış Yap"
+              >
+                <LogOut size={20} />
+              </button>
             </div>
           </div>
         </header>

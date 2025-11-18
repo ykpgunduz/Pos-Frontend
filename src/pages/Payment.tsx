@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Moon, Sun, UserCircle2, RefreshCw } from 'lucide-react';
 import './Payment.css';
+import { useTheme } from '../contexts/ThemeContext';
+import { useUser } from '../contexts/UserContext';
+import UserSelect from '../components/UserSelect';
 
 interface PaymentItem {
   id: number;
@@ -18,6 +22,8 @@ interface QuickSaleData {
 const Payment = () => {
   const navigate = useNavigate();
   const { orderId } = useParams();
+  const { theme, toggleTheme } = useTheme();
+  const { currentUser, openUserSelect } = useUser();
   const [orderItems, setOrderItems] = useState<PaymentItem[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [paidAmount, setPaidAmount] = useState(0);
@@ -26,6 +32,31 @@ const Payment = () => {
   const [selectedPaymentType, setSelectedPaymentType] = useState<'nakit' | 'kart' | 'cari' | 'odenmez' | 'ticket' | 'yemek-karti' | null>(null);
   const [savedPayments, setSavedPayments] = useState<Array<{ type: string; amount: number }>>([]);
   const [tableNumber, setTableNumber] = useState<string>('');
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountType, setDiscountType] = useState<'amount' | 'percent' | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
+  const [productClickCounts, setProductClickCounts] = useState<Record<number, number>>({});
+
+  // Notification gösterme fonksiyonu
+  const showNotification = (message: string) => {
+    setNotification(message);
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000); // 3 saniye sonra kaybolur
+  };
+
+  // Tutar formatlama fonksiyonu
+  const formatAmount = (amount: number): string => {
+    const hasDecimals = amount % 1 !== 0;
+    if (hasDecimals) {
+      return amount.toFixed(2).replace('.', ',');
+    }
+    return amount.toFixed(0);
+  };
+
+  const handleOpenDrawer = () => {
+    alert('Çekmece açılıyor...');
+  };
 
   useEffect(() => {
     // localStorage'dan hızlı satış verilerini al
@@ -78,9 +109,9 @@ const Payment = () => {
       setInputValue('0');
     } else if (value === '⌫') {
       setInputValue(prev => prev.slice(0, -1) || '0');
-    } else if (value === '.') {
-      if (!inputValue.includes('.')) {
-        setInputValue(prev => prev + '.');
+    } else if (value === '.' || value === ',') {
+      if (!inputValue.includes('.') && !inputValue.includes(',')) {
+        setInputValue(prev => prev + ',');
       }
     } else {
       setInputValue(prev => prev === '0' ? value : prev + value);
@@ -91,13 +122,38 @@ const Payment = () => {
     setInputValue(value.toString());
   };
 
+  const handleProductClick = (productId: number, productPrice: number, maxQuantity: number) => {
+    const currentClickCount = productClickCounts[productId] || 0;
+    
+    // Ürünün maksimum adedini kontrol et
+    if (currentClickCount >= maxQuantity) {
+      showNotification(`Bu üründen en fazla ${maxQuantity} adet ekleyebilirsiniz!`);
+      return;
+    }
+    
+    const currentValue = parseFloat(inputValue.replace(',', '.')) || 0;
+    const newValue = currentValue + productPrice;
+    
+    // Toplam tutarı geçmemesi için kontrol
+    if (newValue <= remainingAmount) {
+      setInputValue(newValue.toString().replace('.', ','));
+      // Tıklama sayısını artır
+      setProductClickCounts(prev => ({
+        ...prev,
+        [productId]: currentClickCount + 1
+      }));
+    } else {
+      showNotification('Girilen tutar kalan tutarı geçemez!');
+    }
+  };
+
   const handleAddPayment = () => {
-    if (!selectedPaymentType || parseFloat(inputValue) <= 0) {
-      alert('Lütfen ödeme türü seçin ve geçerli bir tutar girin');
+    if (!selectedPaymentType || parseFloat(inputValue.replace(',', '.')) <= 0) {
+      showNotification('Lütfen ödeme türü seçin ve geçerli bir tutar girin');
       return;
     }
 
-    const amount = parseFloat(inputValue);
+    const amount = parseFloat(inputValue.replace(',', '.'));
     const paymentTypeNames: Record<string, string> = {
       'nakit': 'Nakit',
       'kart': 'Kart',
@@ -126,15 +182,35 @@ const Payment = () => {
     if (remainingAmount <= 0) {
       // Ödeme tamamlandı
       localStorage.removeItem('quickSaleCart');
-      alert('Ödeme başarıyla tamamlandı!');
-      navigate('/');
+      showNotification('Ödeme başarıyla tamamlandı!');
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
     } else {
-      alert(`Kalan tutar: ₺${remainingAmount.toFixed(2)}`);
+      showNotification(`Kalan tutar: ${formatAmount(remainingAmount)} ₺`);
+    }
+  };
+
+  const handleUndoLastPayment = () => {
+    if (savedPayments.length > 0) {
+      const confirmUndo = window.confirm('En son ödeme işlemini geri almak istediğinizden emin misiniz?');
+      if (confirmUndo) {
+        const lastPayment = savedPayments[savedPayments.length - 1];
+        setPaidAmount(prev => prev - lastPayment.amount);
+        setSavedPayments(savedPayments.slice(0, -1));
+      }
     }
   };
 
   return (
     <div className="payment-container">
+      {/* Notification */}
+      {notification && (
+        <div className="notification-toast">
+          {notification}
+        </div>
+      )}
+
       {/* Başlık ve Navigasyon */}
       <div className="payment-header">
         <button 
@@ -144,13 +220,15 @@ const Payment = () => {
           ← Geri
         </button>
         <h1>Ödeme Ekranı</h1>
-        <div className="header-amounts">
-          <div className="header-amount-item">
-            <span>ÖDENEN TUTAR ₺{paidAmount.toFixed(2)}</span>
-          </div>
-          <div className="header-amount-item">
-            <span>KALAN TUTAR ₺{remainingAmount.toFixed(2)}</span>
-          </div>
+        <div className="header-right-controls">
+          <button className="theme-toggle-payment" onClick={toggleTheme}>
+            {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
+          </button>
+          <button className="user-info-btn" onClick={openUserSelect}>
+            <UserCircle2 size={22} />
+            <span>{currentUser?.name || 'Garson Seç'}</span>
+            <RefreshCw size={16} className="change-icon" />
+          </button>
         </div>
       </div>
 
@@ -158,123 +236,178 @@ const Payment = () => {
         {/* Sol taraf - Adisyon */}
         <div className="adisyon-section">
           <div className="adisyon-header">
-            <h2>{tableNumber} - ADİSYON</h2>
-            <div className="adisyon-total">
-              <span>TOPLAM:</span>
-              <span className="amount">₺{totalAmount.toFixed(2)}</span>
-            </div>
+            <h2>Sipariş Detayları</h2>
+          </div>
+          
+          {/* Tablo Başlıkları */}
+          <div className="adisyon-table-header">
+            <span className="header-quantity">Adet</span>
+            <span className="header-name">Ürün İsmi</span>
+            <span className="header-unit-price">Birim Fiyatı</span>
+            <span className="header-total-price">Toplam Fiyat</span>
           </div>
           
           <div className="adisyon-items">
             {orderItems.map((item) => (
-              <div key={item.id} className="adisyon-item">
-                <div className="item-details">
-                  <span className="item-quantity">{item.quantity}x</span>
-                  <span className="item-name">{item.productName}</span>
-                </div>
-                <span className="item-price">₺{item.totalPrice.toFixed(2)}</span>
+              <div 
+                key={item.id} 
+                className="adisyon-item clickable"
+                onClick={() => handleProductClick(item.id, item.price, item.quantity)}
+              >
+                <span className="item-quantity">{item.quantity} x</span>
+                <span className="item-name">{item.productName}</span>
+                <span className="item-unit-price">{formatAmount(item.price)} ₺</span>
+                <span className="item-total-price">{formatAmount(item.totalPrice)} ₺</span>
               </div>
             ))}
+          </div>
+          
+          {/* Toplam Tutar En Altta */}
+          <div className="adisyon-footer">
+            <div className="adisyon-total">
+              <span className="total-label">TOPLAM TUTAR:</span>
+              <span className="total-amount">{formatAmount(totalAmount)} ₺</span>
+            </div>
           </div>
         </div>
 
         {/* Sağ taraf - Ödeme */}
         <div className="payment-section">
-          {/* Quick amount buttons */}
-      <div className="quick-amounts">
-        {quickAmounts.map(value => (
-          <button 
-            key={value} 
-            className="quick-amount-btn"
-            onClick={() => handleQuickAmount(value)}
-          >
-            ₺{value}
-          </button>
-        ))}
-      </div>
-
-      {/* Saved payments */}
-      <div className="saved-payments">
-        {savedPayments.map((payment, index) => (
-          <div key={index} className="saved-payment">
-            <div className="payment-info">
-              <span>{payment.type}</span>
-              <span>₺{payment.amount.toFixed(2)}</span>
-            </div>
-            <button 
-              className="remove-btn"
-              onClick={() => handleRemovePayment(index)}
-            >
-              ×
-            </button>
+      {/* Amount summary section */}
+      <div className="amount-summary">
+        <div className="total-amount-box">
+          <span className="total-label">TOPLAM TUTAR</span>
+          <span className="total-value">{formatAmount(totalAmount)} ₺</span>
+        </div>
+        
+        <div className="paid-amount-box">
+          <div className="paid-amount-header">
+            <span className="paid-label">ÖDENEN TUTAR</span>
+            <span className="paid-value">{formatAmount(paidAmount)} ₺</span>
           </div>
-        ))}
+          <div className="payment-details">
+            {savedPayments.map((payment, index) => (
+              <div key={index} className="payment-detail-item">
+                <span>{payment.type}</span>
+                <span>{formatAmount(payment.amount)} ₺</span>
+                <button 
+                  className="remove-detail-btn"
+                  onClick={() => handleRemovePayment(index)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="remaining-amount-box">
+          <span className="remaining-label">KALAN TUTAR</span>
+          <span className="remaining-value">{formatAmount(remainingAmount)} ₺</span>
+        </div>
       </div>
 
       {/* Main payment grid */}
       <div className="payment-grid">
         {/* Left side with payment types and action buttons */}
         <div className="payment-left">
+          <h3 className="payment-types-title">ÖDEME YÖNTEMLERİ</h3>
+          
           {/* Payment type buttons */}
           <div className="payment-types">
             <button 
               className={`payment-type-btn ${selectedPaymentType === 'nakit' ? 'active' : ''}`}
-              onClick={() => setSelectedPaymentType('nakit')}
+              onClick={() => {
+                setSelectedPaymentType('nakit');
+                setDiscountType(null);
+              }}
             >
               NAKİT
             </button>
             <button 
               className={`payment-type-btn ${selectedPaymentType === 'kart' ? 'active' : ''}`}
-              onClick={() => setSelectedPaymentType('kart')}
+              onClick={() => {
+                setSelectedPaymentType('kart');
+                setDiscountType(null);
+              }}
             >
               KART
             </button>
             <button 
               className={`payment-type-btn ${selectedPaymentType === 'cari' ? 'active' : ''}`}
-              onClick={() => setSelectedPaymentType('cari')}
+              onClick={() => {
+                setSelectedPaymentType('cari');
+                setDiscountType(null);
+              }}
             >
               CARİ
             </button>
             <button 
               className={`payment-type-btn ${selectedPaymentType === 'odenmez' ? 'active' : ''}`}
-              onClick={() => setSelectedPaymentType('odenmez')}
+              onClick={() => {
+                setSelectedPaymentType('odenmez');
+                setDiscountType(null);
+              }}
             >
               ÖDENMEZ
             </button>
             <button 
               className={`payment-type-btn ${selectedPaymentType === 'ticket' ? 'active' : ''}`}
-              onClick={() => setSelectedPaymentType('ticket')}
+              onClick={() => {
+                setSelectedPaymentType('ticket');
+                setDiscountType(null);
+              }}
             >
               TICKET
             </button>
             <button 
               className={`payment-type-btn ${selectedPaymentType === 'yemek-karti' ? 'active' : ''}`}
-              onClick={() => setSelectedPaymentType('yemek-karti')}
+              onClick={() => {
+                setSelectedPaymentType('yemek-karti');
+                setDiscountType(null);
+              }}
             >
               YEMEK KARTI
-            </button>
-            <button className="indirim-btn">
-              İNDİRİM
             </button>
           </div>
 
           {/* Action buttons */}
-          <div className="action-buttons">
-            <button 
-              className="action-btn add-payment-btn"
-              onClick={handleAddPayment}
-              disabled={!selectedPaymentType || parseFloat(inputValue) <= 0}
-            >
-              ÖDEME EKLE
-            </button>
-            <button className="action-btn drawer-btn">ÇEKMECE AÇ</button>
+          <div className="action-buttons-wrapper">
+            <h3 className="discount-types-title">İNDİRİM ÇEŞİTLERİ</h3>
+            
+            <div className="discount-buttons">
+              <button 
+                className={`action-btn indirim-btn ${discountType === 'amount' ? 'active-discount' : ''}`}
+                onClick={() => {
+                  setDiscountType('amount');
+                  setSelectedPaymentType(null);
+                }}
+              >
+                İNDİRİM ₺
+              </button>
+              <button 
+                className={`action-btn indirim-btn ${discountType === 'percent' ? 'active-discount' : ''}`}
+                onClick={() => {
+                  setDiscountType('percent');
+                  setSelectedPaymentType(null);
+                }}
+              >
+                İNDİRİM %
+              </button>
+            </div>
+            
+            <div className="button-divider"></div>
+            
+            <button className="action-btn drawer-btn-full" onClick={handleOpenDrawer}>ÇEKMECE AÇ</button>
           </div>
         </div>
 
         {/* Right side with numpad */}
         <div className="numpad-section">
           {/* Amount display */}
-          <div className="amount-display">₺{inputValue}</div>
+          <div className="amount-display">
+            {discountType === 'percent' ? `% ${inputValue}` : `${inputValue} ₺`}
+          </div>
           
           {/* Numpad grid */}
           <div className="numpad-grid">
@@ -286,26 +419,30 @@ const Payment = () => {
             <button onClick={() => handleNumPadClick('4')}>4</button>
             <button onClick={() => handleNumPadClick('5')}>5</button>
             <button onClick={() => handleNumPadClick('6')}>6</button>
-            <button onClick={() => handleNumPadClick('C')}>C</button>
+            <button className="undo-btn" onClick={handleUndoLastPayment}>GERİ AL</button>
             
             <button onClick={() => handleNumPadClick('1')}>1</button>
             <button onClick={() => handleNumPadClick('2')}>2</button>
             <button onClick={() => handleNumPadClick('3')}>3</button>
             <button 
-              className="enter-btn"
+              className={`enter-btn ${discountType ? 'discount-mode' : ''} ${!selectedPaymentType && !discountType ? 'disabled' : ''}`}
               onClick={handleCompletePayment}
+              disabled={!selectedPaymentType && !discountType}
             >
-              ↵ TAMAMLA
+              {discountType ? '↵ İNDİRİM' : '↵ TAMAMLA'}
             </button>
             
-            <button onClick={() => handleNumPadClick('00')}>00</button>
+            <button onClick={() => handleNumPadClick('C')}>C</button>
             <button onClick={() => handleNumPadClick('0')}>0</button>
-            <button onClick={() => handleNumPadClick('.')}>.</button>
+            <button onClick={() => handleNumPadClick(',')}>,</button>
           </div>
         </div>
       </div>
       </div>
     </div>
+    
+    {/* User Select Modal */}
+    <UserSelect />
     </div>
   );
 };
