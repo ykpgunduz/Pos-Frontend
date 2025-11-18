@@ -36,6 +36,7 @@ const Payment = () => {
   const [discountType, setDiscountType] = useState<'amount' | 'percent' | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const [productClickCounts, setProductClickCounts] = useState<Record<number, number>>({});
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Notification gösterme fonksiyonu
   const showNotification = (message: string) => {
@@ -147,13 +148,71 @@ const Payment = () => {
     }
   };
 
-  const handleAddPayment = () => {
+  const handleAddPayment = async () => {
     if (!selectedPaymentType || parseFloat(inputValue.replace(',', '.')) <= 0) {
       showNotification('Lütfen ödeme türü seçin ve geçerli bir tutar girin');
       return;
     }
 
     const amount = parseFloat(inputValue.replace(',', '.'));
+    
+    // Kart ödemesi için USB POS işlemi
+    if (selectedPaymentType === 'kart') {
+      setIsProcessingPayment(true);
+      
+      try {
+        console.log('Ödeme isteği gönderiliyor:', { amount });
+        
+        const response = await fetch('http://localhost:5005/pay-usb', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ amount }),
+        });
+
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Ödeme yanıtı:', data);
+        
+        if (data.status === 'ok' && data.response?.includes('APPROVED')) {
+          showNotification('Ödeme Başarılı!');
+          
+          const paymentTypeNames: Record<string, string> = {
+            'nakit': 'Nakit',
+            'kart': 'Kart',
+            'cari': 'Cari',
+            'odenmez': 'Ödenmez',
+            'ticket': 'Ticket',
+            'yemek-karti': 'Yemek Kartı'
+          };
+
+          setSavedPayments([...savedPayments, { 
+            type: paymentTypeNames[selectedPaymentType], 
+            amount 
+          }]);
+          setPaidAmount(prev => prev + amount);
+          setInputValue('0');
+          setSelectedPaymentType(null);
+        } else {
+          console.log('Ödeme reddedildi:', data);
+          showNotification('Ödeme reddedildi!');
+        }
+      } catch (error) {
+        console.error('Ödeme hatası detayı:', error);
+        showNotification('POS cihazı bağlı değil!');
+      } finally {
+        setIsProcessingPayment(false);
+      }
+      return;
+    }
+
+    // Diğer ödeme türleri için normal işlem
     const paymentTypeNames: Record<string, string> = {
       'nakit': 'Nakit',
       'kart': 'Kart',
@@ -204,6 +263,16 @@ const Payment = () => {
 
   return (
     <div className="payment-container">
+      {/* Loading Modal */}
+      {isProcessingPayment && (
+        <div className="payment-loading-overlay">
+          <div className="payment-loading-modal">
+            <div className="payment-loading-spinner"></div>
+            <p className="payment-loading-text">Ödeme Alınıyor...</p>
+          </div>
+        </div>
+      )}
+
       {/* Notification */}
       {notification && (
         <div className="notification-toast">
@@ -426,10 +495,10 @@ const Payment = () => {
             <button onClick={() => handleNumPadClick('3')}>3</button>
             <button 
               className={`enter-btn ${discountType ? 'discount-mode' : ''} ${!selectedPaymentType && !discountType ? 'disabled' : ''}`}
-              onClick={handleCompletePayment}
-              disabled={!selectedPaymentType && !discountType}
+              onClick={selectedPaymentType ? handleAddPayment : handleCompletePayment}
+              disabled={(!selectedPaymentType && !discountType) || isProcessingPayment}
             >
-              {discountType ? '↵ İNDİRİM' : '↵ TAMAMLA'}
+              {discountType ? '↵ İNDİRİM' : (selectedPaymentType ? '↵ EKLE' : '↵ TAMAMLA')}
             </button>
             
             <button onClick={() => handleNumPadClick('C')}>C</button>
