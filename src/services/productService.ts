@@ -20,6 +20,7 @@ const normalizeProduct = (p: any): Product => {
     category_id: p.category_id,
     name: p.name || 'İsimsiz Ürün',
     price: Number(p.price) || 0,
+    cost: Number(p.cost) || 0,
     image: p.image || undefined,
     available: p.active !== undefined ? p.active : (p.available !== undefined ? p.available : true),
     active: p.active !== undefined ? p.active : (p.available !== undefined ? p.available : true),
@@ -118,6 +119,7 @@ export const productService = {
         image: payload.image,
         description: payload.description,
         price: payload.price || 0,
+        cost: payload.cost || 0,
         stock: payload.stock || 0,
         active: payload.available !== undefined ? payload.available : true,
         star: payload.star || 0,
@@ -141,6 +143,7 @@ export const productService = {
       
       if (payload.name !== undefined) updateData.name = payload.name;
       if (payload.price !== undefined) updateData.price = payload.price;
+      if (payload.cost !== undefined) updateData.cost = payload.cost;
       if (payload.category_id !== undefined) updateData.category_id = payload.category_id;
       if (payload.image !== undefined) updateData.image = payload.image;
       if (payload.description !== undefined) updateData.description = payload.description;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
@@ -53,6 +53,17 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { currentUser, openUserSelect } = useUser();
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Saati her saniye güncelle
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    // Component unmount olduğunda interval'i temizle
+    return () => clearInterval(timer);
+  }, []);
 
   const handleLogout = () => {
     const confirmLogout = window.confirm('Çıkış yapmak istediğinize emin misiniz?');
@@ -159,7 +170,6 @@ const Home: React.FC = () => {
     },
   ];
 
-  const currentTime = new Date();
   const timeString = currentTime.toLocaleTimeString('tr-TR', { 
     hour: '2-digit', 
     minute: '2-digit' 

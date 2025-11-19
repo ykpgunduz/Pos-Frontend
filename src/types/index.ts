@@ -43,6 +43,7 @@ export interface Product {
   category_id: number;
   name: string;
   price: number;
+  cost?: number;
   category?: string; // Frontend için opsiyonel, backend'den category_id gelir
   image?: string;
   available?: boolean;

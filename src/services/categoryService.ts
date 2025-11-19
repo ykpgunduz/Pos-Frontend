@@ -36,12 +36,19 @@ export const categoryService = {
       const response = await api.get(`/categories/list?page=${page}`);
       const apiData = response.data;
       
+      console.log('Category API Response:', apiData);
+      
       const categories = Array.isArray(apiData.data) ? apiData.data : [];
       
-      // Eğer cafeId verilmişse filtrele
+      console.log('Categories from API:', categories);
+      console.log('Filtering by cafeId:', cafeId);
+      
+      // Eğer cafeId verilmişse filtrele (active kontrolünü kaldırdık)
       const filteredCategories = cafeId 
-        ? categories.filter((c: any) => c.cafe_id === cafeId && c.active)
+        ? categories.filter((c: any) => c.cafe_id === cafeId)
         : categories;
+      
+      console.log('Filtered categories:', filteredCategories);
       
       return {
         data: filteredCategories.map(normalizeCategory),

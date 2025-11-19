@@ -36,6 +36,15 @@ const Products = () => {
   // Aktif cafe_id'yi user'dan al
   const cafeId = currentUser?.cafeId || 1; // Fallback: 1
 
+  // Fiyat formatlama fonksiyonu
+  const formatPrice = (price: number): string => {
+    const hasDecimals = price % 1 !== 0;
+    if (hasDecimals) {
+      return `${price.toFixed(2).replace('.', ',')}₺`;
+    }
+    return `${Math.floor(price)}₺`;
+  };
+
   // States
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -45,9 +54,18 @@ const Products = () => {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
+  // Çoklu seçim için state'ler
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
+  
+  // Inline düzenleme için state'ler
+  const [editingPrices, setEditingPrices] = useState<{ [key: number]: { price: string; cost: string } }>({});
+  const [bulkEditMode, setBulkEditMode] = useState<boolean>(false);
+  
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     price: 0,
+    cost: 0,
     category_id: undefined,
     available: true,
     stock: 0,
@@ -64,14 +82,22 @@ const Products = () => {
     setLoading(true);
     setError(null);
     try {
+      console.log('Veri yükleniyor... cafeId:', cafeId);
+      
       // Kategorileri ve ürünleri paralel yükle
       const [categoriesResponse, productsResponse] = await Promise.all([
         categoryService.getList(1, cafeId),
         productService.getList(1, cafeId)
       ]);
       
+      console.log('Kategoriler yanıtı:', categoriesResponse);
+      console.log('Ürünler yanıtı:', productsResponse);
+      
       setCategories(categoriesResponse.data);
       setProducts(productsResponse.data);
+      
+      console.log('Kategoriler state\'e kaydedildi:', categoriesResponse.data.length, 'adet');
+      console.log('Ürünler state\'e kaydedildi:', productsResponse.data.length, 'adet');
     } catch (err: any) {
       console.error('Veri yükleme hatası:', err);
       setError('Veriler yüklenirken bir hata oluştu.');
@@ -105,6 +131,7 @@ const Products = () => {
     setFormData({
       name: '',
       price: 0,
+      cost: 0,
       category_id: categories.length > 0 ? categories[0].id : undefined,
       available: true,
       stock: 0,
@@ -119,6 +146,7 @@ const Products = () => {
     setFormData({
       name: product.name,
       price: product.price,
+      cost: product.cost || 0,
       category_id: product.category_id,
       available: product.available !== undefined ? product.available : product.active,
       stock: product.stock || 0,
@@ -164,6 +192,7 @@ const Products = () => {
     setFormData({
       name: '',
       price: 0,
+      cost: 0,
       category_id: undefined,
       available: true,
       stock: 0,
@@ -205,6 +234,157 @@ const Products = () => {
   const handleFormChange = useCallback((field: keyof Product, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
+
+  // Çoklu seçim işlemleri
+  const handleSelectAll = useCallback((checked: boolean) => {
+    if (checked) {
+      setSelectedProducts(filteredProducts.map(p => p.id));
+    } else {
+      setSelectedProducts([]);
+    }
+  }, [filteredProducts]);
+
+  const handleSelectProduct = useCallback((productId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedProducts(prev => [...prev, productId]);
+    } else {
+      setSelectedProducts(prev => prev.filter(id => id !== productId));
+    }
+  }, []);
+
+  const handleBulkStatusChange = useCallback(async (newStatus: boolean) => {
+    if (selectedProducts.length === 0) {
+      setError('Lütfen en az bir ürün seçin');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const updatePromises = selectedProducts.map((productId) => 
+        productService.update(productId, { available: newStatus })
+      );
+
+      const updatedProducts = await Promise.all(updatePromises);
+      
+      setProducts(prev => 
+        prev.map(p => {
+          const updated = updatedProducts.find(u => u.id === p.id);
+          return updated || p;
+        })
+      );
+
+      setSelectedProducts([]);
+      setError(null);
+    } catch (err: any) {
+      console.error('Toplu durum değişikliği hatası', err);
+      setError('Ürün durumları güncellenirken hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProducts]);
+
+  // Inline düzenleme fonksiyonları
+  const handleRowClick = useCallback((productId: number, event: React.MouseEvent) => {
+    // Input, button veya checkbox'a tıklandıysa satır seçimi yapma
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.closest('button') || target.closest('.checkbox-cell')) {
+      return;
+    }
+    
+    handleSelectProduct(productId, !selectedProducts.includes(productId));
+  }, [selectedProducts, handleSelectProduct]);
+
+  const handleInlinePriceEdit = useCallback((productId: number, field: 'price' | 'cost', value: string) => {
+    setEditingPrices(prev => ({
+      ...prev,
+      [productId]: {
+        ...prev[productId],
+        [field]: value
+      }
+    }));
+  }, []);
+
+  // Toplu düzenleme fonksiyonları
+  const handleBulkEditToggle = useCallback(() => {
+    if (bulkEditMode) {
+      // Modu kapat ve tüm düzenlemeleri temizle
+      setBulkEditMode(false);
+      setEditingPrices({});
+    } else {
+      // Seçili ürünleri temizle ve tüm görünür ürünler için düzenleme modunu aç
+      setSelectedProducts([]);
+      setBulkEditMode(true);
+      const initialPrices: { [key: number]: { price: string; cost: string } } = {};
+      filteredProducts.forEach(product => {
+        initialPrices[product.id] = {
+          price: product.price.toString(),
+          cost: (product.cost || 0).toString()
+        };
+      });
+      setEditingPrices(initialPrices);
+    }
+  }, [bulkEditMode, filteredProducts]);
+
+  const handleBulkSaveAll = useCallback(async () => {
+    if (Object.keys(editingPrices).length === 0) {
+      setError('Düzenlenecek ürün yok');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const updatePromises = Object.entries(editingPrices).map(async ([productId, values]) => {
+        const id = parseInt(productId);
+        const product = products.find(p => p.id === id);
+        if (!product) return null;
+
+        // Eğer input boş bırakılmışsa eski değeri kullan
+        const newPrice = values.price && values.price.trim() !== '' 
+          ? parseFloat(values.price) 
+          : product.price;
+        const newCost = values.cost && values.cost.trim() !== '' 
+          ? parseFloat(values.cost) 
+          : (product.cost || 0);
+
+        // Hala geçersiz bir sayı varsa bu ürünü atla
+        if (isNaN(newPrice) || isNaN(newCost)) {
+          return null;
+        }
+
+        // Değer değişmemişse güncelleme yapma
+        if (newPrice === product.price && newCost === (product.cost || 0)) {
+          return product;
+        }
+
+        return productService.update(id, {
+          price: newPrice,
+          cost: newCost
+        });
+      });
+
+      const updatedProducts = await Promise.all(updatePromises);
+      
+      setProducts(prev => 
+        prev.map(p => {
+          const updated = updatedProducts.find(u => u?.id === p.id);
+          return updated || p;
+        })
+      );
+
+      setBulkEditMode(false);
+      setEditingPrices({});
+      setError(null);
+    } catch (err: any) {
+      console.error('Toplu fiyat güncelleme hatası', err);
+      setError('Fiyatlar güncellenirken hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  }, [editingPrices, products]);
 
   // Loading state
   if (loading && products.length === 0) {
@@ -253,16 +433,91 @@ const Products = () => {
           />
         </div>
         
-        <button 
-          className="add-btn" 
-          onClick={handleAddNew}
-          aria-label="Yeni ürün ekle"
-        >
-          <Plus size={20} />
-          <span>Yeni Ürün</span>
-        </button>
+        <div className="header-actions">
+          <button 
+            className={`bulk-edit-btn ${bulkEditMode ? 'active' : ''}`}
+            onClick={handleBulkEditToggle}
+            aria-label="Toplu düzenleme"
+          >
+            <Edit2 size={20} />
+            <span>{bulkEditMode ? 'Düzenlemeyi Kapat' : 'Toplu Değişiklik'}</span>
+          </button>
+          
+          <button 
+            className="add-btn" 
+            onClick={handleAddNew}
+            aria-label="Yeni ürün ekle"
+          >
+            <Plus size={20} />
+            <span>Yeni Ürün</span>
+          </button>
+        </div>
       </header>
 
+      {/* Bulk Actions Toolbar */}
+      {selectedProducts.length > 0 && !bulkEditMode && (
+        <div className="bulk-actions-toolbar">
+          <div className="bulk-info">
+            <span className="bulk-count">{selectedProducts.length} ürün seçildi</span>
+            <button 
+              className="bulk-clear"
+              onClick={() => setSelectedProducts([])}
+              aria-label="Seçimi temizle"
+            >
+              <X size={16} />
+              Temizle
+            </button>
+          </div>
+          
+          <div className="bulk-actions">
+            <button 
+              className="bulk-action-btn status-btn active"
+              onClick={() => handleBulkStatusChange(true)}
+              disabled={loading}
+            >
+              <Check size={16} />
+              Aktif Yap
+            </button>
+            
+            <button 
+              className="bulk-action-btn status-btn inactive"
+              onClick={() => handleBulkStatusChange(false)}
+              disabled={loading}
+            >
+              <X size={16} />
+              Pasif Yap
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Edit Mode Toolbar */}
+      {bulkEditMode && (
+        <div className="bulk-edit-toolbar">
+          <div className="bulk-edit-info">
+            <AlertCircle size={20} />
+            <span>Toplu düzenleme modu aktif - Tüm fiyatları ve maliyetleri düzenleyebilirsiniz</span>
+          </div>
+          <div className="bulk-edit-actions">
+            <button 
+              className="bulk-cancel-btn"
+              onClick={handleBulkEditToggle}
+              disabled={loading}
+            >
+              <X size={16} />
+              İptal
+            </button>
+            <button 
+              className="bulk-save-all-btn"
+              onClick={handleBulkSaveAll}
+              disabled={loading}
+            >
+              <Check size={16} />
+              Tümünü Kaydet
+            </button>
+          </div>
+        </div>
+      )}
  
       {/* Products List */}
       <div className="products-content">
@@ -295,8 +550,19 @@ const Products = () => {
             <table className="products-table" role="table" aria-label="Ürünler listesi">
               <thead>
                 <tr>
+                  {!bulkEditMode && (
+                    <th className="checkbox-cell">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        aria-label="Tümünü seç"
+                      />
+                    </th>
+                  )}
                   <th>Ürün Adı</th>
                   <th>Kategori</th>
+                  <th>Maliyet</th>
                   <th>Fiyat</th>
                   <th>Stok</th>
                   <th>Durum</th>
@@ -307,19 +573,73 @@ const Products = () => {
                 {filteredProducts.map((product) => {
                   const productCategory = categories.find(c => c.id === product.category_id);
                   const isAvailable = product.available !== undefined ? product.available : product.active;
+                  const isSelected = selectedProducts.includes(product.id);
+                  const isEditingPrice = bulkEditMode || !!editingPrices[product.id];
                   
                   return (
-                    <tr key={product.id} className={!isAvailable ? 'inactive' : ''}>
+                    <tr 
+                      key={product.id} 
+                      className={`${!isAvailable ? 'inactive' : ''} ${isSelected ? 'selected' : ''} ${bulkEditMode ? '' : 'clickable-row'}`}
+                      onClick={(e) => !bulkEditMode && handleRowClick(product.id, e)}
+                    >
+                      {!bulkEditMode && (
+                        <td className="checkbox-cell">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => handleSelectProduct(product.id, e.target.checked)}
+                            aria-label={`${product.name} seç`}
+                          />
+                        </td>
+                      )}
                       <td className="product-name-cell">
-                        {product.image && <span className="product-icon">{product.image}</span>}
                         {product.name}
                       </td>
                       <td>
                         <span className="category-badge">
-                          {productCategory?.icon} {productCategory?.name || 'Diğer'}
+                          {productCategory?.name || 'Diğer'}
                         </span>
                       </td>
-                      <td className="product-price">₺{product.price.toFixed(2)}</td>
+                      <td className="product-cost-cell">
+                        {isEditingPrice ? (
+                          <input
+                            type="number"
+                            className="inline-price-input"
+                            defaultValue={product.cost || 0}
+                            onChange={(e) => handleInlinePriceEdit(product.id, 'cost', e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            step="0.01"
+                            min="0"
+                            aria-label="Maliyet"
+                            placeholder={`${formatPrice(product.cost || 0)}`}
+                          />
+                        ) : (
+                          <span className="product-cost">
+                            {formatPrice(product.cost || 0)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="product-price-cell">
+                        {isEditingPrice ? (
+                          <input
+                            type="number"
+                            className="inline-price-input"
+                            defaultValue={product.price}
+                            onChange={(e) => handleInlinePriceEdit(product.id, 'price', e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            step="0.01"
+                            min="0"
+                            aria-label="Fiyat"
+                            placeholder={`${formatPrice(product.price)}`}
+                          />
+                        ) : (
+                          <span className="product-price">
+                            {formatPrice(product.price)}
+                          </span>
+                        )}
+                      </td>
                       <td>
                         <span className={`stock-badge ${(product.stock || 0) < 10 ? 'low' : ''}`}>
                           {product.stock || 0} adet
@@ -414,12 +734,26 @@ const Products = () => {
                     <option value="">Kategori seçin</option>
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
-                        {category.icon} {category.name}
+                        {category.name}
                       </option>
                     ))}
                   </select>
                 </div>
 
+                <div className="form-group">
+                  <label htmlFor="product-stock">Stok Miktarı</label>
+                  <input
+                    id="product-stock"
+                    type="number"
+                    value={formData.stock}
+                    onChange={(e) => handleFormChange('stock', parseInt(e.target.value) || 0)}
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="product-price">Fiyat (₺) *</label>
                   <input
@@ -435,14 +769,15 @@ const Products = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="product-stock">Stok Miktarı</label>
+                  <label htmlFor="product-cost">Maliyet (₺)</label>
                   <input
-                    id="product-stock"
+                    id="product-cost"
                     type="number"
-                    value={formData.stock}
-                    onChange={(e) => handleFormChange('stock', parseInt(e.target.value) || 0)}
-                    placeholder="0"
+                    value={formData.cost || 0}
+                    onChange={(e) => handleFormChange('cost', parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
                     min="0"
+                    step="0.01"
                   />
                 </div>
               </div>
