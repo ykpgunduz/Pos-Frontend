@@ -1,5 +1,4 @@
-import { Product } from '../types';
-import { Category } from './categoryService';
+import { Product, Category } from '../types';
 import { productService } from './productService';
 import { categoryService } from './categoryService';
 
@@ -28,7 +27,8 @@ export const cacheService = {
     }
 
     console.log('Kategoriler API\'den yükleniyor...');
-    const categories = await categoryService.getList();
+    const response = await categoryService.getList(1);
+    const categories = response.data;
     localStorage.setItem(CACHE_KEYS.CATEGORIES, JSON.stringify(categories));
     localStorage.setItem(CACHE_KEYS.LAST_UPDATE, Date.now().toString());
     return categories;
@@ -56,7 +56,8 @@ export const cacheService = {
     }
 
     console.log('Ürünler API\'den yükleniyor...');
-    const products = await productService.getList();
+    const response = await productService.getList(1);
+    const products = response.data;
     localStorage.setItem(CACHE_KEYS.PRODUCTS, JSON.stringify(products));
     localStorage.setItem(CACHE_KEYS.LAST_UPDATE, Date.now().toString());
     return products;
@@ -70,11 +71,13 @@ export const cacheService = {
   }> => {
     console.log('Cache yenileniyor...');
     
-    const [products, categories] = await Promise.all([
-      productService.getList(),
-      categoryService.getList(),
+    const [productsResponse, categoriesResponse] = await Promise.all([
+      productService.getList(1),
+      categoryService.getList(1),
     ]);
 
+    const products = productsResponse.data;
+    const categories = categoriesResponse.data;
     const timestamp = Date.now();
     
     localStorage.setItem(CACHE_KEYS.PRODUCTS, JSON.stringify(products));
