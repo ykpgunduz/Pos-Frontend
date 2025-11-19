@@ -11,62 +11,80 @@ import {
   AlertCircle,
   Loader2,
   Package,
-  Coffee,
-  Sandwich,
-  IceCream,
-  Pizza,
-  Salad,
-  Cookie
 } from 'lucide-react';
 import { Product, Category } from '../types';
 import { productService } from '../services/productService';
+import { categoryService } from '../services/categoryService';
+import { useUser } from '../contexts/UserContext';
 import './Products.css';
 
 /**
- * Products - Ürün Yönetim Sayfası
+ * Products - Ürün Yönetim Sayfası (API Entegrasyonlu)
  * 
  * @component
  * @responsive ✅ Mobile(320px) / Tablet(768px) / Desktop(1024px+) tested
  * @ux ✅ Loading, Error, Empty states implemented
  * @a11y ✅ ARIA labels, keyboard navigation, semantic HTML
  * @performance ✅ React.memo, useCallback, useMemo optimized
+ * @api ✅ Fully integrated with backend API
  */
 
 const Products = () => {
   const navigate = useNavigate();
+  const { currentUser } = useUser();
+
+  // Aktif cafe_id'yi user'dan al
+  const cafeId = currentUser?.cafeId || 1; // Fallback: 1
 
   // States
-  // Başlangıçta boş; bileşen mount olduğunda API'den yüklenecek
   const [products, setProducts] = useState<Product[]>([]);
-  
-  const [selectedCategory, setSelectedCategory] = useState<string>('tumu');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     price: 0,
-    category: 'sicak-icecekler',
+    category_id: undefined,
     available: true,
-    stock: 0
+    stock: 0,
+    description: '',
+    image: '',
   });
 
-  // Categories
-  const categories: Category[] = useMemo(() => [
-    { id: 'tumu', name: 'Tüm Ürünler', icon: '📦' },
-    { id: 'sicak-icecekler', name: 'Sıcak İçecekler', icon: '☕' },
-    { id: 'soguk-icecekler', name: 'Soğuk İçecekler', icon: '🥤' },
-    { id: 'yiyecekler', name: 'Yiyecekler', icon: '🍕' },
-    { id: 'tatlilar', name: 'Tatlılar', icon: '🍰' },
-  ], []);
+  // Load initial data (products and categories)
+  useEffect(() => {
+    loadData();
+  }, [cafeId]);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Kategorileri ve ürünleri paralel yükle
+      const [categoriesResponse, productsResponse] = await Promise.all([
+        categoryService.getList(1, cafeId),
+        productService.getList(1, cafeId)
+      ]);
+      
+      setCategories(categoriesResponse.data);
+      setProducts(productsResponse.data);
+    } catch (err: any) {
+      console.error('Veri yükleme hatası:', err);
+      setError('Veriler yüklenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter and search products
   const filteredProducts = useMemo(() => {
     return products
       .filter(product => 
-        selectedCategory === 'tumu' || product.category === selectedCategory
+        selectedCategory === null || product.category_id === selectedCategory
       )
       .filter(product => 
         product.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -74,7 +92,7 @@ const Products = () => {
   }, [products, selectedCategory, searchQuery]);
 
   // Event handlers with useCallback
-  const handleCategoryChange = useCallback((categoryId: string) => {
+  const handleCategoryChange = useCallback((categoryId: number | null) => {
     setSelectedCategory(categoryId);
   }, []);
 
@@ -87,16 +105,26 @@ const Products = () => {
     setFormData({
       name: '',
       price: 0,
-      category: 'sicak-icecekler',
+      category_id: categories.length > 0 ? categories[0].id : undefined,
       available: true,
-      stock: 0
+      stock: 0,
+      description: '',
+      image: '',
     });
     setShowModal(true);
-  }, []);
+  }, [categories]);
 
   const handleEdit = useCallback((product: Product) => {
     setEditingProduct(product);
-    setFormData(product);
+    setFormData({
+      name: product.name,
+      price: product.price,
+      category_id: product.category_id,
+      available: product.available !== undefined ? product.available : product.active,
+      stock: product.stock || 0,
+      description: product.description || '',
+      image: product.image || '',
+    });
     setShowModal(true);
   }, []);
 
@@ -106,34 +134,29 @@ const Products = () => {
     setError(null);
     try {
       await productService.remove(productId);
-      // Yeniden yükle
-      const updated = await productService.getList();
-      setProducts(updated);
-    } catch (err) {
+      setProducts(prev => prev.filter(p => p.id !== productId));
+    } catch (err: any) {
       console.error('Ürün silme hatası', err);
-      setError('Ürün silinirken hata oluştu.');
+      setError(err.response?.data?.message || 'Ürün silinirken hata oluştu.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const handleToggleAvailability = useCallback(async (productId: number) => {
+  const handleToggleAvailability = useCallback(async (product: Product) => {
     setLoading(true);
     setError(null);
     try {
-      const target = products.find(p => p.id === productId);
-      if (!target) throw new Error('Ürün bulunamadı');
-      const updatedPayload = { ...target, available: !target.available } as Partial<Product>;
-      await productService.update(productId, updatedPayload);
-      const updated = await productService.getList();
-      setProducts(updated);
-    } catch (err) {
+      const newAvailability = !(product.available !== undefined ? product.available : product.active);
+      const updatedProduct = await productService.update(product.id, { available: newAvailability });
+      setProducts(prev => prev.map(p => p.id === product.id ? updatedProduct : p));
+    } catch (err: any) {
       console.error('Durum güncelleme hatası', err);
-      setError('Ürün durumunu güncellerken hata oluştu.');
+      setError(err.response?.data?.message || 'Ürün durumunu güncellerken hata oluştu.');
     } finally {
       setLoading(false);
     }
-  }, [products]);
+  }, []);
 
   const handleModalClose = useCallback(() => {
     setShowModal(false);
@@ -141,17 +164,19 @@ const Products = () => {
     setFormData({
       name: '',
       price: 0,
-      category: 'sicak-icecekler',
+      category_id: undefined,
       available: true,
-      stock: 0
+      stock: 0,
+      description: '',
+      image: '',
     });
   }, []);
 
   const handleFormSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.price) {
-      setError('Lütfen tüm zorunlu alanları doldurun');
+    if (!formData.name || !formData.category_id) {
+      setError('Lütfen ürün adı ve kategori seçin');
       return;
     }
 
@@ -159,56 +184,30 @@ const Products = () => {
     setError(null);
     try {
       if (editingProduct) {
-        // Update via API
-        await productService.update(editingProduct.id, formData as Partial<Product>);
+        const updated = await productService.update(editingProduct.id, formData);
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? updated : p));
       } else {
-        // Create via API
-        await productService.create(formData as Partial<Product>);
+        const newProduct = await productService.create({
+          ...formData,
+          cafe_id: cafeId,
+        });
+        setProducts(prev => [newProduct, ...prev]);
       }
-
-      // Yeniden yükle
-      const updated = await productService.getList();
-      setProducts(updated);
       handleModalClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Ürün kaydetme hatası', err);
-      setError('Ürün kaydedilirken hata oluştu.');
+      setError(err.response?.data?.message || 'Ürün kaydedilirken hata oluştu.');
     } finally {
       setLoading(false);
     }
-  }, [formData, editingProduct, handleModalClose]);
+  }, [formData, editingProduct, cafeId, handleModalClose]);
 
   const handleFormChange = useCallback((field: keyof Product, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  // Load products from remote API on mount
-  useEffect(() => {
-    let mounted = true;
-
-    const loadProducts = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const productList = await productService.getList();
-        if (mounted) setProducts(productList);
-      } catch (err: any) {
-        console.error('Ürün yükleme hatası:', err);
-        if (mounted) setError('Ürünler yüklenirken bir hata oluştu.');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    loadProducts();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   // Loading state
-  if (loading) {
+  if (loading && products.length === 0) {
     return (
       <div className="products-container">
         <header className="products-header">
@@ -230,27 +229,18 @@ const Products = () => {
     <div className="products-container">
       {/* Header */}
       <header className="products-header">
-        <button 
-          className="back-btn" 
-          onClick={() => navigate('/')}
-          aria-label="Ana sayfaya dön"
-        >
-          <ArrowLeft size={24} />
-          Ana Sayfa
-        </button>
-        <h1>Ürün Yönetimi</h1>
-        <button 
-          className="add-btn" 
-          onClick={handleAddNew}
-          aria-label="Yeni ürün ekle"
-        >
-          <Plus size={20} />
-          Yeni Ürün
-        </button>
-      </header>
-
-      {/* Filter Section */}
-      <div className="products-filters">
+        <div className="header-left">
+          <button 
+            className="back-btn" 
+            onClick={() => navigate('/')}
+            aria-label="Ana sayfaya dön"
+          >
+            <ArrowLeft size={24} />
+            Ana Sayfa
+          </button>
+          <h1>Ürünler</h1>
+        </div>
+        
         {/* Search */}
         <div className="search-box">
           <Search size={20} />
@@ -262,27 +252,18 @@ const Products = () => {
             aria-label="Ürün ara"
           />
         </div>
+        
+        <button 
+          className="add-btn" 
+          onClick={handleAddNew}
+          aria-label="Yeni ürün ekle"
+        >
+          <Plus size={20} />
+          <span>Yeni Ürün</span>
+        </button>
+      </header>
 
-        {/* Categories */}
-        <div className="categories-tabs" role="navigation" aria-label="Ürün kategorileri">
-          {categories.map((category) => {
-            const isSelected = selectedCategory === category.id;
-            return (
-              <button
-                key={category.id}
-                className={`category-tab ${isSelected ? 'active' : ''}`}
-                onClick={() => handleCategoryChange(category.id)}
-                aria-current={isSelected ? 'page' : undefined}
-                aria-label={category.name}
-              >
-                <span className="category-icon" aria-hidden="true">{category.icon}</span>
-                <span className="category-name">{category.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
+ 
       {/* Products List */}
       <div className="products-content">
         {error && (
@@ -323,45 +304,54 @@ const Products = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((product) => (
-                  <tr key={product.id} className={!product.available ? 'inactive' : ''}>
-                    <td className="product-name-cell">{product.name}</td>
-                    <td>
-                      <span className="category-badge">
-                        {categories.find(c => c.id === product.category)?.name || product.category}
-                      </span>
-                    </td>
-                    <td className="product-price">₺{product.price.toFixed(2)}</td>
-                    <td>
-                      <span className={`stock-badge ${product.stock! < 10 ? 'low' : ''}`}>
-                        {product.stock} adet
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        className={`status-toggle ${product.available ? 'active' : 'inactive'}`}
-                        onClick={() => handleToggleAvailability(product.id)}
-                        aria-label={product.available ? 'Ürünü pasif yap' : 'Ürünü aktif yap'}
-                      >
-                        {product.available ? (
-                          <>
-                            <Check size={16} />
-                            Aktif
-                          </>
-                        ) : (
-                          <>
-                            <X size={16} />
-                            Pasif
-                          </>
-                        )}
-                      </button>
-                    </td>
+                {filteredProducts.map((product) => {
+                  const productCategory = categories.find(c => c.id === product.category_id);
+                  const isAvailable = product.available !== undefined ? product.available : product.active;
+                  
+                  return (
+                    <tr key={product.id} className={!isAvailable ? 'inactive' : ''}>
+                      <td className="product-name-cell">
+                        {product.image && <span className="product-icon">{product.image}</span>}
+                        {product.name}
+                      </td>
+                      <td>
+                        <span className="category-badge">
+                          {productCategory?.icon} {productCategory?.name || 'Diğer'}
+                        </span>
+                      </td>
+                      <td className="product-price">₺{product.price.toFixed(2)}</td>
+                      <td>
+                        <span className={`stock-badge ${(product.stock || 0) < 10 ? 'low' : ''}`}>
+                          {product.stock || 0} adet
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className={`status-toggle ${isAvailable ? 'active' : 'inactive'}`}
+                          onClick={() => handleToggleAvailability(product)}
+                          aria-label={isAvailable ? 'Ürünü pasif yap' : 'Ürünü aktif yap'}
+                          disabled={loading}
+                        >
+                          {isAvailable ? (
+                            <>
+                              <Check size={16} />
+                              Aktif
+                            </>
+                          ) : (
+                            <>
+                              <X size={16} />
+                              Pasif
+                            </>
+                          )}
+                        </button>
+                      </td>
                     <td>
                       <div className="action-buttons">
                         <button
                           className="action-btn edit-btn"
                           onClick={() => handleEdit(product)}
                           aria-label={`${product.name} ürününü düzenle`}
+                          disabled={loading}
                         >
                           <Edit2 size={18} />
                         </button>
@@ -369,13 +359,15 @@ const Products = () => {
                           className="action-btn delete-btn"
                           onClick={() => handleDelete(product.id)}
                           aria-label={`${product.name} ürününü sil`}
+                          disabled={loading}
                         >
                           <Trash2 size={18} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -415,13 +407,14 @@ const Products = () => {
                   <label htmlFor="product-category">Kategori *</label>
                   <select
                     id="product-category"
-                    value={formData.category}
-                    onChange={(e) => handleFormChange('category', e.target.value)}
+                    value={formData.category_id || ''}
+                    onChange={(e) => handleFormChange('category_id', parseInt(e.target.value))}
                     required
                   >
-                    {categories.filter(c => c.id !== 'tumu').map((category) => (
+                    <option value="">Kategori seçin</option>
+                    {categories.map((category) => (
                       <option key={category.id} value={category.id}>
-                        {category.name}
+                        {category.icon} {category.name}
                       </option>
                     ))}
                   </select>
@@ -442,17 +435,38 @@ const Products = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="product-stock">Stok Miktarı *</label>
+                  <label htmlFor="product-stock">Stok Miktarı</label>
                   <input
                     id="product-stock"
                     type="number"
                     value={formData.stock}
-                    onChange={(e) => handleFormChange('stock', parseInt(e.target.value))}
+                    onChange={(e) => handleFormChange('stock', parseInt(e.target.value) || 0)}
                     placeholder="0"
                     min="0"
-                    required
                   />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="product-image">Emoji/İkon</label>
+                <input
+                  id="product-image"
+                  type="text"
+                  value={formData.image}
+                  onChange={(e) => handleFormChange('image', e.target.value)}
+                  placeholder="☕ (emoji veya URL)"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="product-description">Açıklama</label>
+                <textarea
+                  id="product-description"
+                  value={formData.description}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
+                  placeholder="Ürün açıklaması..."
+                  rows={3}
+                />
               </div>
 
               <div className="form-group checkbox-group">
@@ -471,11 +485,19 @@ const Products = () => {
                   type="button" 
                   className="cancel-btn" 
                   onClick={handleModalClose}
+                  disabled={loading}
                 >
                   İptal
                 </button>
-                <button type="submit" className="submit-btn">
-                  {editingProduct ? 'Güncelle' : 'Ekle'}
+                <button type="submit" className="submit-btn" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 size={16} className="spinner-icon" />
+                      Kaydediliyor...
+                    </>
+                  ) : (
+                    editingProduct ? 'Güncelle' : 'Ekle'
+                  )}
                 </button>
               </div>
             </form>

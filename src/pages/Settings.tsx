@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Moon, Sun } from 'lucide-react';
+import { ChevronLeft, Moon, Sun, RefreshCw } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { cacheService } from '../services/cacheService';
 import './Settings.css';
 
 interface SettingsProps {}
@@ -11,6 +12,44 @@ const Settings: React.FC<SettingsProps> = () => {
   const { theme, toggleTheme } = useTheme();
   const [notifications, setNotifications] = useState(false);
   const [activeMenu, setActiveMenu] = useState('sistem');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cacheInfo, setCacheInfo] = useState({
+    lastUpdate: null as Date | null,
+    productCount: 0,
+    categoryCount: 0,
+    hasCache: false,
+  });
+
+  useEffect(() => {
+    loadCacheInfo();
+  }, []);
+
+  const loadCacheInfo = () => {
+    const info = cacheService.getCacheInfo();
+    setCacheInfo(info);
+  };
+
+  const handleRefreshCache = async () => {
+    setIsRefreshing(true);
+    try {
+      await cacheService.refreshCache();
+      loadCacheInfo();
+      alert('Veriler başarıyla yenilendi!');
+    } catch (error) {
+      console.error('Cache yenileme hatası:', error);
+      alert('Veriler yenilenirken bir hata oluştu.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleClearCache = () => {
+    if (window.confirm('Tüm önbelleği temizlemek istediğinizden emin misiniz?')) {
+      cacheService.clearCache();
+      loadCacheInfo();
+      alert('Önbellek temizlendi!');
+    }
+  };
 
   return (
     <div className="settings-container">
@@ -91,6 +130,13 @@ const Settings: React.FC<SettingsProps> = () => {
             >
               <span className="menu-icon">🛠️</span>
               Bakım
+            </button>
+            <button 
+              className={`menu-item ${activeMenu === 'veri' ? 'active' : ''}`}
+              onClick={() => setActiveMenu('veri')}
+            >
+              <span className="menu-icon">💾</span>
+              Veri Yönetimi
             </button>
             <button 
               className={`menu-item ${activeMenu === 'hakkinda' ? 'active' : ''}`}
@@ -251,6 +297,61 @@ const Settings: React.FC<SettingsProps> = () => {
                 <button onClick={() => window.open('https://portal.example.com', '_blank')}>
                   Web Portal'a Git <span>↗</span>
                 </button>
+              </div>
+            </>
+          )}
+
+          {activeMenu === 'veri' && (
+            <>
+              <div className="settings-section">
+                <h3>VERİ YÖNETİMİ</h3>
+                
+                <div className="cache-info-card">
+                  <div className="cache-stats">
+                    <div className="stat-item">
+                      <span className="stat-label">Önbellekteki Ürünler:</span>
+                      <span className="stat-value">{cacheInfo.productCount}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">Önbellekteki Kategoriler:</span>
+                      <span className="stat-value">{cacheInfo.categoryCount}</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-label">Son Güncelleme:</span>
+                      <span className="stat-value">
+                        {cacheInfo.lastUpdate 
+                          ? cacheInfo.lastUpdate.toLocaleString('tr-TR')
+                          : 'Henüz yüklenmedi'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="cache-actions">
+                    <button 
+                      className="refresh-btn"
+                      onClick={handleRefreshCache}
+                      disabled={isRefreshing}
+                    >
+                      <RefreshCw size={18} className={isRefreshing ? 'spinning' : ''} />
+                      {isRefreshing ? 'Yenileniyor...' : 'Verileri Yenile'}
+                    </button>
+                    
+                    <button 
+                      className="clear-cache-btn"
+                      onClick={handleClearCache}
+                      disabled={!cacheInfo.hasCache}
+                    >
+                      🗑️ Önbelleği Temizle
+                    </button>
+                  </div>
+
+                  <div className="cache-description">
+                    <p>
+                      <strong>ℹ️ Bilgi:</strong> Ürün ve kategori verileri performans için önbellekte saklanır. 
+                      Yeni ürün eklediyseniz veya değişiklik yaptıysanız "Verileri Yenile" butonuna basın.
+                    </p>
+                  </div>
+                </div>
               </div>
             </>
           )}

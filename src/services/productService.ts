@@ -1,119 +1,172 @@
 import { api } from './api';
 import { Product } from '../types';
 
-// Helper to normalize various API response shapes into Product[]
-const normalizeList = (payload: any[]): Product[] => {
-  return payload.map((p: any, idx: number) => ({
-    id: typeof p.id === 'number' ? p.id : (p.id ? Number(p.id) : Date.now() + idx),
-    name: p.name || p.title || 'İsimsiz Ürün',
-    price: Number(p.price ?? p.unit_price ?? 0) || 0,
-    category: p.category || p.category_id || 'diğer',
-    image: p.image || p.icon || '📦',
-    available: p.available ?? p.is_active ?? true,
-    stock: p.stock ?? p.quantity ?? 0,
-    description: p.description ?? p.desc ?? '',
-    createdAt: p.created_at || p.createdAt,
-    updatedAt: p.updated_at || p.updatedAt,
-  }));
+/**
+ * Product Service - API Documentation'a uygun
+ * 
+ * Endpoints:
+ * - GET /api/products/list (paginated)
+ * - GET /api/products/{id}
+ * - POST /api/products/create
+ * - PUT/PATCH /api/products/{id}/update
+ * - DELETE /api/products/{id}/delete
+ */
+
+// Helper to normalize API response into Product type
+const normalizeProduct = (p: any): Product => {
+  return {
+    id: p.id,
+    cafe_id: p.cafe_id,
+    category_id: p.category_id,
+    name: p.name || 'İsimsiz Ürün',
+    price: Number(p.price) || 0,
+    image: p.image || undefined,
+    available: p.active !== undefined ? p.active : (p.available !== undefined ? p.available : true),
+    active: p.active !== undefined ? p.active : (p.available !== undefined ? p.available : true),
+    stock: p.stock || 0,
+    description: p.description || '',
+    star: p.star || 0,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+  };
 };
 
 export const productService = {
-  // Liste
-  // Liste - artık opsiyonel filtreleri (kategori, search) destekler
-  getList: async (opts?: { category?: string; search?: string; }): Promise<Product[]> => {
-    const category = opts?.category;
-    const search = opts?.search;
-
-    // Try several endpoints / param shapes so client is tolerant to backend differences
-    const attempts: Array<{ url: string; params?: Record<string, any> }> = [
-      { url: '/products/list', params: { ...(category ? { category } : {}), ...(search ? { q: search } : {}) } },
-      { url: '/products', params: { ...(category ? { category } : {}), ...(search ? { q: search } : {}) } },
-    ];
-
-    // If category present, also try category-specific endpoint
-    if (category) {
-      attempts.push({ url: `/products/category/${encodeURIComponent(category)}` });
-      attempts.push({ url: `/products/by-category`, params: { category } });
+  /**
+   * Tüm ürünleri listele (paginated)
+   * GET /api/products/list?page=1
+   */
+  getList: async (page: number = 1, cafeId?: number): Promise<{ data: Product[]; total: number; currentPage: number; lastPage: number }> => {
+    try {
+      const response = await api.get(`/products/list?page=${page}`);
+      const apiData = response.data;
+      
+      // Pagination bilgilerini çıkar
+      const products = Array.isArray(apiData.data) ? apiData.data : [];
+      
+      // Eğer cafeId verilmişse filtrele
+      const filteredProducts = cafeId 
+        ? products.filter((p: any) => p.cafe_id === cafeId)
+        : products;
+      
+      return {
+        data: filteredProducts.map(normalizeProduct),
+        total: apiData.total || filteredProducts.length,
+        currentPage: apiData.current_page || page,
+        lastPage: apiData.last_page || 1,
+      };
+    } catch (error) {
+      console.error('Product list error:', error);
+      return { data: [], total: 0, currentPage: 1, lastPage: 1 };
     }
-
-    for (const attempt of attempts) {
-      try {
-        const res = await api.get(attempt.url, attempt.params ? { params: attempt.params } : undefined);
-        const data = res.data;
-        // Normalize shapes
-        if (Array.isArray(data)) return normalizeList(data);
-        if (data && Array.isArray(data.data)) return normalizeList(data.data);
-        if (data && Array.isArray(data.products)) return normalizeList(data.products);
-        if (data && Array.isArray(data.results)) return normalizeList(data.results);
-        // Some APIs return object with items field
-        if (data && Array.isArray(data.items)) return normalizeList(data.items);
-      } catch (e) {
-        // try next attempt
-        continue;
-      }
-    }
-
-    // Fallback: boş dizi
-    return [];
   },
 
-  // Kategoriler - çeşitli API şekillerine toleranslı şekilde dener
-  getCategories: async (): Promise<string[]> => {
-    const endpoints = ['/categories', '/products/categories', '/categories/list'];
-    for (const ep of endpoints) {
-      try {
-        const res = await api.get(ep);
-        const data = res.data;
-        let arr: any[] | null = null;
-        if (Array.isArray(data)) arr = data;
-        else if (data && Array.isArray(data.data)) arr = data.data;
-        else if (data && Array.isArray(data.categories)) arr = data.categories;
-        else if (data && Array.isArray(data.results)) arr = data.results;
-
-        if (arr && arr.length > 0) {
-          const names = arr.map((c: any) => {
-            if (!c && c !== 0) return '';
-            if (typeof c === 'string') return c;
-            return c.name || c.title || c.label || c.category || String(c.id ?? c.value ?? '');
-          }).filter(Boolean) as string[];
-          if (names.length > 0) return names;
-        }
-      } catch (e) {
-        // endpoint yoksa ya da hata dönüyorsa diğer endpointleri dene
-        continue;
-      }
-    }
-    // Fallback: boş dizi
-    return [];
+  /**
+   * Kategoriye göre ürünleri filtrele (frontend tarafında)
+   */
+  getByCategory: async (categoryId: number, page: number = 1): Promise<Product[]> => {
+    const response = await productService.getList(page);
+    return response.data.filter(p => p.category_id === categoryId);
   },
 
-  // Tek ürün
+  /**
+   * Cafe'ye göre ürünleri getir
+   */
+  getByCafe: async (cafeId: number, page: number = 1): Promise<Product[]> => {
+    const response = await productService.getList(page, cafeId);
+    return response.data;
+  },
+
+  /**
+   * Tek bir ürünü getir
+   * GET /api/products/{id}
+   */
   getById: async (id: number): Promise<Product | null> => {
-    const res = await api.get(`/products/${id}`);
-    const data = res.data?.data ?? res.data;
-    if (!data) return null;
-    const [p] = normalizeList([data]);
-    return p;
+    try {
+      const response = await api.get(`/products/${id}`);
+      const product = response.data;
+      return normalizeProduct(product);
+    } catch (error) {
+      console.error('Product get by id error:', error);
+      return null;
+    }
   },
 
-  // Oluştur
+  /**
+   * Yeni ürün oluştur
+   * POST /api/products/create
+   * 
+   * Required fields:
+   * - cafe_id: number
+   * - category_id: number
+   * - name: string
+   * 
+   * Optional fields:
+   * - image: string
+   * - price: number
+   * - stock: number
+   * - active: boolean
+   * - star: number
+   * - description: string
+   */
   create: async (payload: Partial<Product>): Promise<Product> => {
-    const res = await api.post('/products/create', payload);
-    const data = res.data?.data ?? res.data;
-    const [p] = normalizeList(Array.isArray(data) ? data : [data]);
-    return p;
+    try {
+      const response = await api.post('/products/create', {
+        cafe_id: payload.cafe_id,
+        category_id: payload.category_id,
+        name: payload.name,
+        image: payload.image,
+        description: payload.description,
+        price: payload.price || 0,
+        stock: payload.stock || 0,
+        active: payload.available !== undefined ? payload.available : true,
+        star: payload.star || 0,
+      });
+      
+      const product = response.data?.data || response.data;
+      return normalizeProduct(product);
+    } catch (error) {
+      console.error('Product create error:', error);
+      throw error;
+    }
   },
 
-  // Güncelle (put/patch destekli)
+  /**
+   * Ürünü güncelle
+   * PUT/PATCH /api/products/{id}/update
+   */
   update: async (id: number, payload: Partial<Product>): Promise<Product> => {
-    const res = await api.put(`/products/${id}/update`, payload);
-    const data = res.data?.data ?? res.data;
-    const [p] = normalizeList(Array.isArray(data) ? data : [data]);
-    return p;
+    try {
+      const updateData: any = {};
+      
+      if (payload.name !== undefined) updateData.name = payload.name;
+      if (payload.price !== undefined) updateData.price = payload.price;
+      if (payload.category_id !== undefined) updateData.category_id = payload.category_id;
+      if (payload.image !== undefined) updateData.image = payload.image;
+      if (payload.description !== undefined) updateData.description = payload.description;
+      if (payload.stock !== undefined) updateData.stock = payload.stock;
+      if (payload.available !== undefined) updateData.active = payload.available;
+      if (payload.star !== undefined) updateData.star = payload.star;
+      
+      const response = await api.patch(`/products/${id}/update`, updateData);
+      const product = response.data?.data || response.data;
+      return normalizeProduct(product);
+    } catch (error) {
+      console.error('Product update error:', error);
+      throw error;
+    }
   },
 
-  // Sil
+  /**
+   * Ürünü sil
+   * DELETE /api/products/{id}/delete
+   */
   remove: async (id: number): Promise<void> => {
-    await api.delete(`/products/${id}/delete`);
-  }
+    try {
+      await api.delete(`/products/${id}/delete`);
+    } catch (error) {
+      console.error('Product delete error:', error);
+      throw error;
+    }
+  },
 };

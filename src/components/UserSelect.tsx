@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { User, ChefHat, UserCog, CreditCard, X } from 'lucide-react';
 import { useUser } from '../contexts/UserContext';
 import { User as UserType } from '../types';
@@ -36,6 +36,34 @@ const ROLE_CONFIG = {
 const UserSelect = () => {
   const { currentUser, setCurrentUser, isUserSelectOpen, closeUserSelect } = useUser();
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isUserSelectOpen) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      
+      // Prevent body scroll and layout shift
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore body scroll
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.paddingRight = '';
+        document.body.style.overflow = '';
+        
+        // Restore scroll position
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isUserSelectOpen]);
+
   // Handle user selection
   const handleUserSelect = useCallback((user: UserType) => {
     setCurrentUser(user);
@@ -55,11 +83,18 @@ const UserSelect = () => {
   }, [handleClose]);
 
   // Handle ESC key
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      handleClose();
+  useEffect(() => {
+    const handleEscKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isUserSelectOpen) {
+        handleClose();
+      }
+    };
+
+    if (isUserSelectOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
     }
-  }, [handleClose]);
+  }, [isUserSelectOpen, handleClose]);
 
   if (!isUserSelectOpen) return null;
 
@@ -67,7 +102,6 @@ const UserSelect = () => {
     <div 
       className="user-select-overlay"
       onClick={handleBackdropClick}
-      onKeyDown={handleKeyDown}
       role="dialog"
       aria-modal="true"
       aria-labelledby="user-select-title"

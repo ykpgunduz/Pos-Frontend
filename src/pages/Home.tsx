@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUser } from '../contexts/UserContext';
 import { authService } from '../services/authService';
 import { 
   UtensilsCrossed, 
@@ -11,15 +12,16 @@ import {
   Archive, 
   Users, 
   BarChart3,
-  User as UserIcon,
+  UserCircle2,
   Moon,
   Sun,
   Loader2,
   AlertCircle,
-  RefreshCcw,
+  RefreshCw,
   LogOut
 } from 'lucide-react';
 import type { User } from '../types';
+import UserSelect from '../components/UserSelect';
 import './Home.css';
 
 interface MenuCard {
@@ -50,7 +52,7 @@ interface Notification {
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const [currentUser] = useState<User | null>(null);
+  const { currentUser, openUserSelect } = useUser();
 
   const handleLogout = () => {
     const confirmLogout = window.confirm('Çıkış yapmak istediğinize emin misiniz?');
@@ -170,63 +172,52 @@ const Home: React.FC = () => {
 
   return (
     <div className={`home-container ${theme}`}>
-      {/* Header */}
-      <header className="home-header">
-        <div className="header-left">
-          <h1 className="logo">HARPY <span>Pos</span></h1>
-        </div>
-        <div className="header-center">
-          <span className="restaurant-name">UNDERGROUND CAFE</span>
-        </div>
-        <div className="header-right">
-          <button 
-            className="logout-btn" 
-            onClick={handleLogout} 
-            title="Çıkış Yap"
-            aria-label="Çıkış Yap"
-            type="button"
-          >
-            <LogOut size={20} strokeWidth={2} />
-          </button>
-          <button 
-            className="theme-toggle-header" 
-            onClick={toggleTheme} 
-            title={theme === 'light' ? 'Karanlık temaya geç' : 'Aydınlık temaya geç'}
-            aria-label={theme === 'light' ? 'Karanlık temaya geç' : 'Aydınlık temaya geç'}
-            type="button"
-          >
-            {theme === 'light' ? (
-              <Moon size={20} strokeWidth={2} />
-            ) : (
-              <Sun size={20} strokeWidth={2} />
-            )}
-          </button>
-          <div className="status-item user-item">
-            <UserIcon size={18} />
-            <span>{currentUser?.name || 'Kullanıcı Seçin'}</span>
-            <button 
-              className="change-btn"
-              aria-label="Kullanıcı değiştir"
-            >
-              DEĞİŞTİR
-            </button>
+      {/* Top Bar with Time Widget and Header */}
+      <div className="top-bar">
+        <div className="time-widget">
+          <div className="time-info">
+            <div className="current-time">{timeString}</div>
+            <div className="current-date">{dateString}</div>
+          </div>
+          <div className="logo-widget">
+            <h1 className="logo">HARPY</h1>
+            <span className="logo-subtitle">Pos Sistemleri</span>
           </div>
         </div>
-      </header>
+
+        {/* Header */}
+        <header className="home-header">
+          <div className="header-left">
+            <span className="restaurant-name">UNDERGROUND CAFE</span>
+          </div>
+          <div className="header-right">
+            <button 
+              className="logout-btn" 
+              onClick={handleLogout} 
+              title="Çıkış Yap"
+              aria-label="Çıkış Yap"
+              type="button"
+            >
+              <LogOut size={20} strokeWidth={2} />
+            </button>
+            <button className="theme-toggle-payment" onClick={toggleTheme}>
+              {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
+            </button>
+            <button className="user-info-btn" onClick={openUserSelect}>
+              <UserCircle2 size={22} />
+              <span>{currentUser?.name || 'Garson Seç'}</span>
+              <RefreshCw size={16} className="change-icon" />
+            </button>
+          </div>
+        </header>
+      </div>
 
       <div className="home-content">
         {/* Left Panel - Notifications */}
         <aside className="left-panel">
-          <div className="time-widget">
-            <div className="time-info">
-              <div className="current-time">{timeString}</div>
-              <div className="current-date">{dateString}</div>
-            </div>
-          </div>
-
           <div className="notifications-section">
             <div className="notifications-header">
-              <h3>� İŞLETME DURUMU</h3>
+              <h3>🔔 İşletme Bildirimleri</h3>
               <span className="badge">5</span>
             </div>
             <div className="notifications-list">
@@ -285,6 +276,9 @@ const Home: React.FC = () => {
           </button>
         </div>
       </footer>
+      
+      {/* User Select Modal */}
+      <UserSelect />
     </div>
   );
 };

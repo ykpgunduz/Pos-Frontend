@@ -4,8 +4,30 @@ import { Table, ApiResponse } from '../types';
 export const tableService = {
   // Tüm masaları getir
   getAllTables: async (): Promise<Table[]> => {
-    const response = await api.get<ApiResponse<Table[]>>('/tables');
+    const response = await api.get<ApiResponse<Table[]>>('/tables/list');
     return response.data.data;
+  },
+
+  // Mevcut cafe'nin masalarını getir
+  getCurrentCafeTables: async (): Promise<Table[]> => {
+    try {
+      const response = await api.get<ApiResponse<Table[]>>('/tables/cafe/me');
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Cafe masaları yüklenemedi:', error);
+      return [];
+    }
+  },
+
+  // Belirli bir cafe'nin masalarını getir
+  getCafeTables: async (cafeId: number): Promise<Table[]> => {
+    try {
+      const response = await api.get<ApiResponse<Table[]>>(`/tables/cafe/${cafeId}`);
+      return response.data.data || [];
+    } catch (error) {
+      console.error(`Cafe ${cafeId} masaları yüklenemedi:`, error);
+      return [];
+    }
   },
 
   // Belirli bir masayı getir
@@ -14,26 +36,40 @@ export const tableService = {
     return response.data.data;
   },
 
-  // Yeni masa oluştur
+  // Yeni masa oluştur (cafe için)
   createTable: async (table: Omit<Table, 'id'>): Promise<Table> => {
-    const response = await api.post<ApiResponse<Table>>('/tables', table);
+    const response = await api.post<ApiResponse<Table>>('/tables/create', table);
     return response.data.data;
+  },
+
+  // Toplu masa oluştur (cafe için)
+  createTablesForCafe: async (cafeId: number, tableCount: number): Promise<Table[]> => {
+    try {
+      const response = await api.post<ApiResponse<Table[]>>('/tables/bulk-create', {
+        cafe_id: cafeId,
+        table_count: tableCount
+      });
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Toplu masa oluşturulamadı:', error);
+      throw error;
+    }
   },
 
   // Masa güncelle
   updateTable: async (id: number, table: Partial<Table>): Promise<Table> => {
-    const response = await api.put<ApiResponse<Table>>(`/tables/${id}`, table);
+    const response = await api.patch<ApiResponse<Table>>(`/tables/${id}/update`, table);
     return response.data.data;
   },
 
   // Masa sil
   deleteTable: async (id: number): Promise<void> => {
-    await api.delete(`/tables/${id}`);
+    await api.delete(`/tables/${id}/delete`);
   },
 
   // Masa durumunu güncelle
   updateTableStatus: async (id: number, status: Table['status']): Promise<Table> => {
-    const response = await api.patch<ApiResponse<Table>>(`/tables/${id}/status`, { status });
+    const response = await api.patch<ApiResponse<Table>>(`/tables/${id}/update`, { status });
     return response.data.data;
   },
 };

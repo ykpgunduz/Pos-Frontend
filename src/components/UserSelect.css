@@ -15,7 +15,10 @@
   justify-content: center;
   z-index: 9999;
   padding: 1rem;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.25s ease-out;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 @keyframes fadeIn {
@@ -31,22 +34,26 @@
 .user-select-modal {
   background: var(--bg-primary);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 1px rgba(0, 0, 0, 0.2);
   max-width: 900px;
   width: 100%;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp 0.3s ease;
+  animation: modalSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  margin: auto;
+  position: relative;
+  will-change: transform, opacity;
+  transform-origin: center center;
 }
 
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
+@keyframes modalSlideIn {
+  0% {
+    transform: scale(0.9) translateY(30px);
     opacity: 0;
   }
-  to {
-    transform: translateY(0);
+  100% {
+    transform: scale(1) translateY(0);
     opacity: 1;
   }
 }
@@ -70,29 +77,48 @@
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
+  background: rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: var(--radius-sm);
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: white !important;
+  color: white;
   transition: all 0.2s ease;
+  flex-shrink: 0;
+  position: relative;
 }
 
+/* Hide the SVG and use CSS X instead */
 .close-btn svg {
-  stroke: white !important;
-  fill: none !important;
-  width: 24px !important;
-  height: 24px !important;
-  display: block !important;
+  display: none !important;
+}
+
+/* Create X with CSS */
+.close-btn::before,
+.close-btn::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 2.5px;
+  background: white;
+  border-radius: 2px;
+}
+
+.close-btn::before {
+  transform: rotate(45deg);
+}
+
+.close-btn::after {
+  transform: rotate(-45deg);
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.5);
   transform: scale(1.05);
 }
 
@@ -291,11 +317,22 @@
 }
 
 [data-theme='dark'] .close-btn {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 [data-theme='dark'] .close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme='dark'] .close-btn svg {
+  display: none !important;
+}
+
+[data-theme='dark'] .close-btn::before,
+[data-theme='dark'] .close-btn::after {
+  background: white;
 }
 
 [data-theme='dark'] .user-card {

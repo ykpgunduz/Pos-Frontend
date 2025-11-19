@@ -4,8 +4,8 @@ import { ArrowLeft, Plus, Minus, Trash2, Moon, Sun, Search } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 import { OrderItem, Product } from '../types';
-import { productService } from '../services/productService';
 import { cartService } from '../services/cartService';
+import { cacheService } from '../services/cacheService';
 import './TableDetail.css';
 
 interface CartItem extends OrderItem {
@@ -19,29 +19,31 @@ const TableDetail = () => {
   const { currentUser, openUserSelect } = useUser();
   
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState('ANA YEMEKLER');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
-
-  // Kategoriler (could be fetched from API later)
-  const categories = [
-    'MENÜLER',
-    'ANA YEMEKLER',
-    'ÇORBALAR',
-    'MEZELER',
-    'BALIKLAR',
-    'SALATALAR',
-    'ARA SICAKLAR',
-    'İÇECEKLER',
-    'TATLLAR'
-  ];
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
     const load = async () => {
       try {
-        const list = await productService.getList();
+        setLoading(true);
+        
+        // Kategorileri cache'den yükle (ilk parametre false = cache kullan)
+        const categoryList = await cacheService.getCategoryNames(false);
+        if (mounted) {
+          setCategories(categoryList);
+          // İlk kategoriyi seç
+          if (categoryList.length > 0 && !selectedCategory) {
+            setSelectedCategory(categoryList[0]);
+          }
+        }
+
+        // Ürünleri cache'den yükle
+        const list = await cacheService.getProducts(false);
         if (mounted) setProducts(list);
 
         // Try to load cart by table id if provided
@@ -66,7 +68,9 @@ const TableDetail = () => {
           }
         }
       } catch (err) {
-        console.error('TableDetail ürün yükleme hatası', err);
+        console.error('TableDetail yükleme hatası', err);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -74,10 +78,11 @@ const TableDetail = () => {
     return () => { mounted = false; };
   }, [tableId]);
 
-  const filteredProducts = products.filter(product => 
-    product.category === selectedCategory &&
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products.filter(product => {
+    const matchesCategory = !selectedCategory || product.category === selectedCategory;
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.productId === product.id);
@@ -121,6 +126,14 @@ const TableDetail = () => {
   };
 
   const totalAmount = cart.reduce((sum, item) => sum + item.totalPrice, 0);
+
+  if (loading) {
+    return (
+      <div className="table-detail-page">
+        <div className="loading">Yükleniyor...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="table-detail-page">
@@ -221,32 +234,40 @@ const TableDetail = () => {
 
           {/* Ürün Grid */}
           <div className="products-grid">
-            {filteredProducts.map((product) => (
-              <div 
-                key={product.id} 
-                className={`product-card ${!product.available ? 'unavailable' : ''}`}
-                onClick={() => product.available && addToCart(product)}
-              >
-                <div className="product-image">{product.image}</div>
-                <div className="product-info">
-                  <h3 className="product-name">{product.name}</h3>
-                  <div className="product-footer">
-                    <span className="product-price">₺{product.price}</span>
-                    {!product.available && (
-                      <span className="stock-badge">Stokta Yok</span>
-                    )}
-                    {product.available && (
-                      <button 
-                        className="add-btn"
-                        aria-label={`${product.name} ürününü sepete ekle`}
-                      >
-                        <Plus size={16} />
-                      </button>
-                    )}
+            {loading ? (
+              <div className="loading">Ürünler yükleniyor...</div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="no-products">
+                {searchQuery ? 'Arama sonucu bulunamadı' : 'Bu kategoride ürün bulunmamaktadır'}
+              </div>
+            ) : (
+              filteredProducts.map((product) => (
+                <div 
+                  key={product.id} 
+                  className={`product-card ${!product.available ? 'unavailable' : ''}`}
+                  onClick={() => product.available && addToCart(product)}
+                >
+                  <div className="product-image">{product.image}</div>
+                  <div className="product-info">
+                    <h3 className="product-name">{product.name}</h3>
+                    <div className="product-footer">
+                      <span className="product-price">₺{product.price}</span>
+                      {!product.available && (
+                        <span className="stock-badge">Stokta Yok</span>
+                      )}
+                      {product.available && (
+                        <button 
+                          className="add-btn"
+                          aria-label={`${product.name} ürününü sepete ekle`}
+                        >
+                          <Plus size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </main>
       </div>

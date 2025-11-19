@@ -8,6 +8,79 @@
   overflow: hidden;
 }
 
+/* Top Bar with Time Widget */
+.top-bar {
+  padding: 1rem 2rem;
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: stretch;
+  gap: 1.5rem;
+}
+
+.top-bar .time-widget {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  border-radius: var(--radius-xl);
+  padding: 1rem 1.25rem;
+  border: none;
+  box-shadow: var(--shadow-lg);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: auto;
+  min-width: 380px;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+.top-bar .time-info {
+  flex: 1;
+}
+
+.top-bar .current-time {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+  color: white;
+}
+
+.top-bar .current-date {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+/* Logo Widget in Time Panel */
+.top-bar .logo-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  border-left: 2px solid rgba(255, 255, 255, 0.3);
+  padding-left: 1.25rem;
+  margin-left: 1.25rem;
+}
+
+.top-bar .logo-widget .logo {
+  font-size: 1.8rem;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: -1px;
+  color: white;
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.top-bar .logo-widget .logo-subtitle {
+  font-size: 0.85rem;
+  font-weight: 300;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 0.25rem;
+  letter-spacing: 0.5px;
+}
+
 /* Loading State */
 .loading-state {
   flex: 1;
@@ -101,51 +174,93 @@
 }
 
 
-.theme-toggle-header {
-  width: 40px;
-  height: 40px;
+/* Theme Toggle Button - Payment Style */
+.theme-toggle-payment {
+  background: var(--card-bg, white);
+  border: 2px solid var(--border-color, #ddd);
   border-radius: 50%;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
+  width: 45px;
+  height: 45px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.1));
   transition: all 0.3s ease;
-  margin-right: 1rem;
-  flex-shrink: 0;
+  color: var(--text-primary);
   padding: 0;
-}
-
-.theme-toggle-header svg {
-  width: 20px;
-  height: 20px;
   flex-shrink: 0;
-  display: block;
 }
 
-.theme-toggle-header:hover {
-  background: var(--primary);
+.theme-toggle-payment svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+}
+
+.theme-toggle-payment:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md, 0 4px 8px rgba(0, 0, 0, 0.15));
+  background: var(--primary, #6c5ce7);
   color: white;
-  border-color: var(--primary);
-  transform: scale(1.05);
+  border-color: var(--primary, #6c5ce7);
 }
 
-.theme-toggle-header:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+/* User Info Button - Payment Style */
+.user-info-btn {
+  background: var(--card-bg, white);
+  border: 2px solid var(--border-color, #ddd);
+  border-radius: 30px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: all 0.3s ease;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 1rem;
+  white-space: nowrap;
+  min-height: 50px;
+}
+
+.user-info-btn svg {
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.user-info-btn .change-icon {
+  opacity: 0.6;
+  transition: all 0.3s ease;
+}
+
+.user-info-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md, 0 4px 8px rgba(0, 0, 0, 0.15));
+  background: var(--primary, #6c5ce7);
+  color: white;
+  border-color: var(--primary, #6c5ce7);
+}
+
+.user-info-btn:hover .change-icon {
+  opacity: 1;
+  transform: rotate(180deg);
 }
 
 /* Header */
 .home-header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 2rem;
+  padding: 1rem 1.5rem;
   background: var(--card-bg);
-  border-bottom: 1px solid var(--border-color);
+  border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-xl);
+  flex: 1;
+  min-width: 0;
+  height: 100%;
 }
 
 .header-left {
@@ -154,31 +269,11 @@
   justify-content: flex-start;
 }
 
-.header-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .header-right {
   display: flex;
   gap: 1rem;
   align-items: center;
   justify-content: flex-end;
-}
-
-.logo {
-  font-size: 1.5rem;
-  font-weight: 800;
-  margin: 0;
-  letter-spacing: -0.5px;
-  color: var(--primary);
-}
-
-.logo span {
-  font-weight: 300;
-  font-style: italic;
-  color: var(--text-primary);
 }
 
 .restaurant-name {
@@ -192,58 +287,6 @@
   box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
 }
 
-.status-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.status-badge {
-  padding: 0.3rem 0.75rem;
-  border-radius: var(--radius-lg);
-  background: var(--bg-tertiary);
-  font-size: 0.7rem;
-  font-weight: 700;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-}
-
-.status-badge.online {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: var(--success);
-  color: var(--success);
-}
-
-.user-item {
-  background: var(--bg-tertiary);
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-}
-
-.change-btn {
-  padding: 0.25rem 0.75rem !important;
-  font-size: 0.7rem !important;
-  background: var(--primary) !important;
-  color: white !important;
-  border: none !important;
-  border-radius: var(--radius-sm) !important;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.change-btn:hover {
-  background: var(--primary-dark) !important;
-}
-
-.change-btn:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
 /* Logout Button */
 .logout-btn {
   display: flex;
@@ -252,17 +295,19 @@
   width: 44px;
   height: 44px;
   padding: 0;
-  background: rgba(239, 68, 68, 0.1);
-  border: 2px solid var(--danger);
+  background: var(--card-bg);
+  border: 2px solid var(--border-color);
   border-radius: var(--radius-md);
-  color: var(--danger);
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .logout-btn:hover {
   background: var(--danger);
   color: white;
+  border-color: var(--danger);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
@@ -281,9 +326,8 @@
   flex: 1;
   display: flex;
   gap: 1.5rem;
-  padding: 1.5rem 2rem 1rem;
+  padding: 0 2rem 1rem 2rem;
   overflow: hidden;
-  height: calc(100vh - 135px);
 }
 
 /* Left Panel */
@@ -294,36 +338,6 @@
   gap: 1rem;
   height: 100%;
   overflow: hidden;
-}
-
-.time-widget {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  border-radius: var(--radius-xl);
-  padding: 1.25rem 1.5rem;
-  border: none;
-  box-shadow: var(--shadow-lg);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.time-info {
-  flex: 1;
-}
-
-.current-time {
-  font-size: 3.5rem;
-  font-weight: 700;
-  line-height: 1;
-  margin-bottom: 0.25rem;
-  color: white;
-}
-
-.current-date {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 500;
 }
 
 .notifications-section {
@@ -542,10 +556,11 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1.25rem;
-  padding: 0.5rem;
+  padding: 1.5rem 0.5rem 0.5rem 0.5rem;
   overflow-y: auto;
   overflow-x: hidden;
   align-content: start;
+  align-items: center;
   flex: 1;
   min-height: 0;
 }
@@ -572,31 +587,29 @@
 
 .menu-card {
   background: var(--card-bg);
-  border-radius: var(--radius-xl);
-  padding: 1.5rem;
+  border-radius: 24px;
+  padding: 2.25rem 1.75rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 1.5rem;
   cursor: pointer;
-  border: 2px solid var(--border-light);
-  box-shadow: var(--shadow-md);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--border-light);
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.03),
+    0 8px 24px rgba(0, 0, 0, 0.02);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   overflow: hidden;
   aspect-ratio: 1.1 / 1;
-  /* Touch-friendly minimum size */
   min-height: 120px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
-/* Focus indicator for accessibility */
-.menu-card:focus-visible {
-  outline: 3px solid var(--primary);
-  outline-offset: 2px;
-  border-color: var(--primary);
-}
-
+/* Glass morphism effect */
 .menu-card::before {
   content: '';
   position: absolute;
@@ -604,47 +617,129 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(
+    135deg, 
+    var(--primary) 0%, 
+    var(--primary-dark) 50%,
+    #a855f7 100%
+  );
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 0;
 }
 
-.menu-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: var(--shadow-xl);
-  border-color: var(--primary);
+/* Animated gradient border */
+.menu-card::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(
+    60deg,
+    var(--primary),
+    #ec4899,
+    #a855f7,
+    #3b82f6,
+    var(--primary)
+  );
+  background-size: 300% 300%;
+  border-radius: 24px;
+  opacity: 0;
+  z-index: -1;
+  animation: gradientBorder 3s ease infinite;
+  transition: opacity 0.5s ease;
 }
 
-.menu-card:active {
-  transform: translateY(-4px) scale(1.01);
+@keyframes gradientBorder {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
-.menu-card:hover::before {
-  opacity: 0.08;
-}
-
-.menu-icon {
-  color: var(--primary);
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-  transition: transform 0.3s ease;
-  position: relative;
+/* Floating particles effect */
+.menu-card .particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
   z-index: 1;
 }
 
-.menu-card:hover .menu-icon {
-  transform: scale(1.15);
-  color: var(--primary-dark);
+.menu-card:hover {
+  transform: translateY(-12px) scale(1.04) rotateX(2deg);
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.12),
+    0 12px 24px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-color: transparent;
+}
+
+.menu-card:active {
+  transform: translateY(-8px) scale(1.02);
+  transition: all 0.2s ease;
+}
+
+.menu-card:hover::before {
+  opacity: 1;
+}
+
+.menu-card:hover::after {
+  opacity: 1;
+}
+
+/* Focus indicator for accessibility */
+.menu-card:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* Hide menu icons */
+.menu-icon {
+  display: none;
 }
 
 .menu-title {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-weight: 800;
   color: var(--text-primary);
   margin: 0;
   text-align: center;
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  letter-spacing: 0.8px;
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+/* Title underline effect */
+.menu-title::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 70%;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, white, transparent);
+  border-radius: 2px;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.menu-card:hover .menu-title {
+  color: white;
+  transform: translateY(-5px) scale(1.05);
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 4px 8px rgba(0, 0, 0, 0.1),
+    0 0 20px rgba(255, 255, 255, 0.3);
+  letter-spacing: 1.5px;
+}
+
+.menu-card:hover .menu-title::after {
+  transform: translateX(-50%) scaleX(1);
 }
 
 /* Footer */
@@ -699,6 +794,26 @@
   outline-offset: 2px;
 }
 
+/* Responsive - Mobil cihazlarda kullanıcı ismini gizle */
+@media (max-width: 640px) {
+  .user-info-btn span {
+    display: none;
+  }
+  
+  .user-info-btn .change-icon {
+    display: none;
+  }
+  
+  .user-info-btn {
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    justify-content: center;
+    min-height: unset;
+  }
+}
+
 /* Responsive */
 @media (max-width: 1400px) {
   .menu-grid {
@@ -711,12 +826,21 @@
   }
 
   .menu-card {
-    padding: 1.25rem;
+    padding: 2rem 1.5rem;
+  }
+
+  .menu-icon {
+    width: 75px;
+    height: 75px;
   }
 
   .menu-icon svg {
-    width: 35px;
-    height: 35px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .menu-title {
+    font-size: 0.9rem;
   }
 }
 
@@ -728,28 +852,34 @@
     overflow-y: auto;
     gap: 1rem;
   }
+  
+  /* Top bar becomes vertical on tablet */
+  .top-bar {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .top-bar .time-widget {
+    width: 100%;
+    min-width: unset;
+  }
+  
+  .home-header {
+    width: 100%;
+  }
 
   .left-panel {
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
     height: auto;
   }
 
-  .time-widget {
-    grid-column: 1;
-    min-width: unset;
-  }
-
   .notifications-section {
-    grid-column: 2;
-    grid-row: 1 / 3;
-    max-height: none;
-  }
-
-  .customer-service-btn {
-    grid-column: 1;
+    max-height: 400px;
   }
 
   .menu-grid {
@@ -757,8 +887,17 @@
     margin-top: 0.5rem;
   }
 
-  .current-time {
-    font-size: 2.8rem;
+  .top-bar .current-time {
+    font-size: 2.5rem;
+  }
+  
+  /* Logo widget tablet boyutta */
+  .top-bar .logo-widget .logo {
+    font-size: 1.6rem;
+  }
+  
+  .top-bar .logo-widget .logo-subtitle {
+    font-size: 0.8rem;
   }
 }
 
@@ -767,17 +906,12 @@
     grid-template-columns: repeat(3, 1fr);
   }
 
-  .home-header {
-    grid-template-columns: auto 1fr auto;
-    padding: 1rem 1.5rem;
+  .top-bar {
+    padding: 0.875rem;
   }
 
   .header-right {
     gap: 0.75rem;
-  }
-
-  .status-item {
-    font-size: 0.75rem;
   }
 
   .restaurant-name {
@@ -791,46 +925,26 @@
 }
 
 @media (max-width: 768px) {
+  .top-bar {
+    padding: 0.75rem;
+  }
+  
   .home-header {
-    padding: 0.875rem;
+    padding: 0.875rem 1rem;
     gap: 0.5rem;
   }
   
   .header-left {
     gap: 0.5rem;
   }
-  
-  .logo {
-    font-size: 1.2rem;
-  }
-
-  .theme-toggle-header {
-    width: 38px;
-    height: 38px;
-    margin-right: 0.75rem;
-  }
-
-  .theme-toggle-header svg {
-    width: 18px;
-    height: 18px;
-  }
 
   .home-content {
-    padding: 0.875rem;
+    padding: 0 0.75rem 0.75rem 0.75rem;
     gap: 0.875rem;
   }
 
   .left-panel {
-    grid-template-columns: 1fr;
-  }
-
-  .time-widget,
-  .notifications-section {
-    grid-column: 1;
-  }
-
-  .notifications-section {
-    grid-row: auto;
+    width: 100%;
   }
 
   .home-footer {
@@ -853,13 +967,19 @@
   }
 
   .menu-card {
-    padding: 1rem;
+    padding: 1.75rem 1.25rem;
     aspect-ratio: 1;
+    gap: 1.25rem;
+  }
+
+  .menu-icon {
+    width: 70px;
+    height: 70px;
   }
 
   .menu-icon svg {
-    width: 32px;
-    height: 32px;
+    width: 38px;
+    height: 38px;
   }
 
   .menu-title {
@@ -877,13 +997,13 @@
 }
 
 @media (max-width: 480px) {
-  .home-header {
-    padding: 0.75rem;
-    grid-template-columns: auto 1fr auto;
+  .top-bar {
+    padding: 0.5rem;
+    gap: 0.75rem;
   }
   
-  .logo {
-    font-size: 1.1rem;
+  .home-header {
+    padding: 0.75rem;
   }
 
   .restaurant-name {
@@ -900,29 +1020,40 @@
     width: 18px;
     height: 18px;
   }
-
-  .theme-toggle-header {
-    width: 36px;
-    height: 36px;
-    margin-right: 0.5rem;
-  }
-
-  .theme-toggle-header svg {
-    width: 16px;
-    height: 16px;
+  
+  /* Time widget mobilde daha kompakt */
+  .top-bar .time-widget {
+    padding: 0.875rem 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: unset;
   }
   
-  .user-item {
-    padding: 0.4rem 0.75rem;
+  .top-bar .logo-widget {
+    border-left: none;
+    border-top: 2px solid rgba(255, 255, 255, 0.3);
+    padding-left: 0;
+    padding-top: 0.75rem;
+    margin-left: 0;
+    margin-top: 0.5rem;
+    align-items: center;
   }
   
-  .user-item span {
-    display: none;
+  /* Logo widget mobilde daha küçük */
+  .top-bar .logo-widget .logo {
+    font-size: 1.5rem;
   }
   
-  .change-btn {
-    font-size: 0.65rem !important;
-    padding: 0.25rem 0.5rem !important;
+  .top-bar .logo-widget .logo-subtitle {
+    font-size: 0.75rem;
+  }
+  
+  .top-bar .current-time {
+    font-size: 2rem;
+  }
+  
+  .top-bar .current-date {
+    font-size: 0.65rem;
   }
 
   .home-footer {
@@ -944,16 +1075,8 @@
   }
   
   .home-content {
-    padding: 0.75rem;
+    padding: 0 0.5rem 0.5rem 0.5rem;
     gap: 0.75rem;
-  }
-  
-  .current-time {
-    font-size: 2.2rem;
-  }
-  
-  .current-date {
-    font-size: 0.7rem;
   }
   
   .menu-grid {
@@ -961,12 +1084,18 @@
   }
   
   .menu-card {
-    padding: 0.875rem;
+    padding: 1.5rem 1rem;
+    gap: 1rem;
+  }
+  
+  .menu-icon {
+    width: 65px;
+    height: 65px;
   }
   
   .menu-icon svg {
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
   }
   
   .menu-title {
@@ -999,17 +1128,90 @@
     aspect-ratio: 2/1;
     flex-direction: row;
     justify-content: flex-start;
-    gap: 1rem;
-    padding: 1rem;
+    gap: 1.5rem;
+    padding: 1.5rem 2rem;
   }
 
   .menu-icon {
     margin: 0;
+    width: 70px;
+    height: 70px;
+  }
+  
+  .menu-icon svg {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .menu-title {
+    text-align: left;
+    flex: 1;
+    font-size: 0.85rem;
+  }
+  
+  .menu-title::after {
+    display: none;
+  }
+  
+  /* Çok küçük ekranlarda logo daha minimal */
+  .top-bar .logo-widget .logo {
+    font-size: 1.25rem;
+  }
+  
+  .top-bar .logo-widget .logo-subtitle {
+    font-size: 0.65rem;
+  }
+  
+  .top-bar .current-time {
+    font-size: 1.75rem;
   }
 }
 
 /* Landscape Mode */
 @media (max-height: 600px) and (orientation: landscape) {
+  .top-bar {
+    padding: 0.5rem 1rem;
+    flex-direction: row;
+    gap: 1rem;
+  }
+  
+  .top-bar .time-widget {
+    padding: 0.75rem 1rem;
+    flex-direction: row;
+    min-width: 350px;
+    width: auto;
+  }
+  
+  .top-bar .logo-widget {
+    border-left: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: none;
+    padding-left: 1rem;
+    padding-top: 0;
+    margin-left: 1rem;
+    margin-top: 0;
+    align-items: flex-end;
+  }
+  
+  .top-bar .logo-widget .logo {
+    font-size: 1.5rem;
+  }
+  
+  .top-bar .logo-widget .logo-subtitle {
+    font-size: 0.75rem;
+  }
+
+  .top-bar .current-time {
+    font-size: 1.75rem;
+  }
+  
+  .top-bar .current-date {
+    font-size: 0.65rem;
+  }
+  
+  .home-header {
+    padding: 0.75rem 1rem;
+  }
+  
   .home-content {
     flex-direction: row;
   }
@@ -1028,48 +1230,173 @@
     aspect-ratio: 1.2/1;
   }
 
-  .time-widget {
-    padding: 1rem;
-  }
-
-  .current-time {
-    font-size: 2rem;
-  }
-
   .notifications-section {
     max-height: calc(100vh - 300px);
   }
 }
 
-/* Menu Card Gradient Backgrounds */
+/* Menu Card Themed Backgrounds */
+
+/* 1. Masalar - Elegant Restaurant Theme (Purple-Pink) */
 .menu-card:nth-child(1) {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(244, 63, 94, 0.1) 100%);
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(236, 72, 153, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(167, 139, 250, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(236, 72, 153, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%),
+    var(--card-bg);
+  position: relative;
+  overflow: hidden;
 }
 
+.menu-card:nth-child(1)::before {
+  background: linear-gradient(
+    135deg, 
+    #ec4899 0%, 
+    #a855f7 50%,
+    #d946ef 100%
+  );
+}
+
+/* 2. Hızlı Satış - Dynamic Shopping Theme (Blue-Cyan) */
 .menu-card:nth-child(2) {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+  background: 
+    radial-gradient(circle at 70% 30%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 30% 70%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%),
+    var(--card-bg);
 }
 
+.menu-card:nth-child(2)::before {
+  background: linear-gradient(
+    135deg, 
+    #3b82f6 0%, 
+    #06b6d4 50%,
+    #0ea5e9 100%
+  );
+}
+
+/* 3. Paket Sipariş - Delivery Theme (Orange-Amber) */
 .menu-card:nth-child(3) {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(251, 146, 60, 0.1) 100%);
+  background: 
+    radial-gradient(circle at 50% 20%, rgba(251, 146, 60, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 20% 80%, rgba(245, 158, 11, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(251, 146, 60, 0.08) 0%, rgba(245, 158, 11, 0.08) 100%),
+    var(--card-bg);
 }
 
+.menu-card:nth-child(3)::before {
+  background: linear-gradient(
+    135deg, 
+    #fb923c 0%, 
+    #f59e0b 50%,
+    #fbbf24 100%
+  );
+}
+
+/* 4. Mutfak - Chef/Cooking Theme (Emerald-Green) */
 .menu-card:nth-child(4) {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+  background: 
+    radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 20% 20%, rgba(34, 197, 94, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(34, 197, 94, 0.08) 100%),
+    var(--card-bg);
 }
 
+.menu-card:nth-child(4)::before {
+  background: linear-gradient(
+    135deg, 
+    #10b981 0%, 
+    #22c55e 50%,
+    #059669 100%
+  );
+}
+
+/* 5. Ürünler - Product Catalog Theme (Indigo-Blue) */
 .menu-card:nth-child(5) {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+  background: 
+    radial-gradient(circle at 30% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 70% 70%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%),
+    var(--card-bg);
 }
 
+.menu-card:nth-child(5)::before {
+  background: linear-gradient(
+    135deg, 
+    #6366f1 0%, 
+    #3b82f6 50%,
+    #4f46e5 100%
+  );
+}
+
+/* 6. Stoklar - Inventory Theme (Red-Rose) */
 .menu-card:nth-child(6) {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+  background: 
+    radial-gradient(circle at 60% 40%, rgba(239, 68, 68, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 60%, rgba(244, 63, 94, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(244, 63, 94, 0.08) 100%),
+    var(--card-bg);
 }
 
+.menu-card:nth-child(6)::before {
+  background: linear-gradient(
+    135deg, 
+    #ef4444 0%, 
+    #f43f5e 50%,
+    #dc2626 100%
+  );
+}
+
+/* 7. Cariler - Customer/People Theme (Purple-Violet) */
 .menu-card:nth-child(7) {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(147, 51, 234, 0.1) 100%);
+  background: 
+    radial-gradient(circle at 25% 75%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 75% 25%, rgba(147, 51, 234, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%),
+    var(--card-bg);
 }
 
+.menu-card:nth-child(7)::before {
+  background: linear-gradient(
+    135deg, 
+    #a855f7 0%, 
+    #9333ea 50%,
+    #c084fc 100%
+  );
+}
+
+/* 8. Raporlar - Analytics Theme (Teal-Cyan) */
 .menu-card:nth-child(8) {
-  background: linear-gradient(135deg, rgba(20, 184, 166, 0.1) 0%, rgba(13, 148, 136, 0.1) 100%);
+  background: 
+    radial-gradient(circle at 50% 50%, rgba(20, 184, 166, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 10% 90%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(20, 184, 166, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%),
+    var(--card-bg);
+}
+
+.menu-card:nth-child(8)::before {
+  background: linear-gradient(
+    135deg, 
+    #14b8a6 0%, 
+    #06b6d4 50%,
+    #0d9488 100%
+  );
+}
+
+/* Decorative patterns for each card */
+.menu-card:nth-child(1)::after,
+.menu-card:nth-child(2)::after,
+.menu-card:nth-child(3)::after,
+.menu-card:nth-child(4)::after,
+.menu-card:nth-child(5)::after,
+.menu-card:nth-child(6)::after,
+.menu-card:nth-child(7)::after,
+.menu-card:nth-child(8)::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 24px;
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.5s ease;
 }

@@ -6,6 +6,16 @@ export interface Table {
   currentOrder?: Order;
   currentGuests?: number;
   area: 'bahce' | 'salon' | 'kat';
+  cafe_id?: number;
+}
+
+export interface Cafe {
+  id: number;
+  name: string;
+  email: string;
+  table_count: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Order {
@@ -29,21 +39,30 @@ export interface OrderItem {
 
 export interface Product {
   id: number;
+  cafe_id: number;
+  category_id: number;
   name: string;
   price: number;
-  category: string;
+  category?: string; // Frontend için opsiyonel, backend'den category_id gelir
   image?: string;
-  available: boolean;
+  available?: boolean;
+  active?: boolean; // API'de active olarak dönüyor
   stock?: number;
   description?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  star?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Category {
-  id: string;
+  id: number;
+  cafe_id: number;
   name: string;
-  icon: string;
+  description?: string;
+  active: boolean;
+  icon?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface User {

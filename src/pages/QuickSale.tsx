@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Trash2, Moon, Sun, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Trash2, Moon, Sun, Search, UserCircle2, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import './QuickSale.css';
-import { Product, OrderItem } from '../types';
+import { Product, OrderItem, Category } from '../types';
 import { productService } from '../services/productService';
+import { categoryService } from '../services/categoryService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 
@@ -17,28 +18,31 @@ const QuickSale = () => {
   const { currentUser, openUserSelect } = useUser();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('Tümü');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null); // null = "Tümü"
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [totalAmount, setTotalAmount] = useState<number>(0);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState<boolean>(true);
   const [productsLoading, setProductsLoading] = useState<boolean>(false);
   const [productsError, setProductsError] = useState<string | null>(null);
 
-  // Ürünleri seçili kategoriye göre sunucudan yükle
+  // Ürünleri API'den yükle
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       setProductsLoading(true);
       setProductsError(null);
       try {
-        // Eğer selectedCategory "Tümü" ise, category parametresini gönderme
-        const categoryParam = selectedCategory === 'Tümü' ? undefined : selectedCategory;
-        const list = await productService.getList({ 
-          category: categoryParam, 
-          search: searchQuery || undefined 
-        });
-        if (mounted) setProducts(list);
+        // Tüm ürünleri çek, filtreleme client-side yapılacak
+        const response = await productService.getList(1);
+        if (mounted) {
+          setProducts(response.data);
+          // Debug: Ürünleri konsola yazdır
+          console.log('Yüklenen ürünler:', response.data);
+          if (response.data.length > 0) {
+            console.log('İlk ürün örneği:', response.data[0]);
+          }
+        }
       } catch (err: any) {
         console.error('QuickSale ürün yükleme hatası', err);
         if (mounted) setProductsError(err?.message || 'Ürünler yüklenirken hata oluştu');
@@ -47,41 +51,29 @@ const QuickSale = () => {
       }
     };
 
-    // yüklemeyi yalnızca kategori seçildiğinde veya search değiştiğinde tetikle
     load();
     return () => { mounted = false; };
-  }, [selectedCategory, searchQuery]);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
-    const defaults = ['MENÜLER', 'ANA YEMEKLER', 'ÇORBALAR', 'MEZELER', 'SALATALAR', 'İÇECEKLER', 'TATLILAR'];
     const loadCategories = async () => {
       try {
-        const cats = await productService.getCategories();
+        const response = await categoryService.getList(1);
         if (mounted) {
-          if (cats && cats.length > 0) {
-            // "Tümü" seçeneğini kategori listesinin başına ekle
-            const categoriesWithAll = ['Tümü', ...cats.map(c => (typeof c === 'string' ? c : String(c)))];
-            setCategories(categoriesWithAll);
-            // İlk kategori yüklenmesinde "Tümü" seçili olsun
-            if (!selectedCategory || selectedCategory === '') {
-              setSelectedCategory('Tümü');
+          if (response.data && response.data.length > 0) {
+            setCategories(response.data);
+            // İlk yüklemede "Tümü" seçili (null = tümü)
+            if (selectedCategoryId === undefined) {
+              setSelectedCategoryId(null);
             }
           } else {
-            const categoriesWithAll = ['Tümü', ...defaults];
-            setCategories(categoriesWithAll);
-            if (!selectedCategory || selectedCategory === '') {
-              setSelectedCategory('Tümü');
-            }
+            setCategories([]);
           }
         }
       } catch (err) {
         if (mounted) {
-          const categoriesWithAll = ['Tümü', ...defaults];
-          setCategories(categoriesWithAll);
-          if (!selectedCategory || selectedCategory === '') {
-            setSelectedCategory('Tümü');
-          }
+          setCategories([]);
         }
         console.error('Kategori yükleme hatası', err);
       } finally {
@@ -97,10 +89,42 @@ const QuickSale = () => {
     setTotalAmount(total);
   }, [cart]);
 
-  // Sunucudan kategoriye göre filtrelenmiş ürünler geliyor; yine de arama kutusuna göre client-side filtre uygula
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Fiyat formatlama: kuruş yoksa tam sayı, varsa virgüllü göster
+  const formatPrice = (amount: number): string => {
+    const hasDecimals = amount % 1 !== 0;
+    if (hasDecimals) {
+      return amount.toFixed(2).replace('.', ',');
+    }
+    return amount.toFixed(0);
+  };
+
+  // Ürünleri kategoriye ve arama sorgusuna göre filtrele
+  const filteredProducts = products.filter(product => {
+    try {
+      // Arama filtresi
+      const matchesSearch = !searchQuery || 
+        (product.name && product.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      // Kategori filtresi - category_id'ye göre
+      let matchesCategory = true;
+      if (selectedCategoryId !== null && selectedCategoryId !== undefined) {
+        // Belirli bir kategori seçilmiş
+        matchesCategory = product.category_id === selectedCategoryId;
+      }
+      // selectedCategoryId === null ise tümünü göster
+      
+      return matchesSearch && matchesCategory;
+    } catch (error) {
+      console.error('Filtreleme hatası:', error, product);
+      return false;
+    }
+  });
+
+  // Debug: Filtrelenmiş ürünleri logla
+  useEffect(() => {
+    console.log('Seçili kategori ID:', selectedCategoryId);
+    console.log('Filtrelenmiş ürün sayısı:', filteredProducts.length);
+  }, [selectedCategoryId, filteredProducts.length]);
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.productId === product.id);
@@ -156,10 +180,6 @@ const QuickSale = () => {
 
   return (
     <div className="table-detail-page">
-      <button className="theme-toggle" onClick={toggleTheme}>
-        {theme === 'light' ? <Moon size={24} /> : <Sun size={24} />}
-      </button>
-
       {/* Header */}
       <header className="detail-header">
         <div className="header-left">
@@ -183,13 +203,14 @@ const QuickSale = () => {
           />
         </div>
 
-        <div className="header-actions">
-          <span className="user-badge">👤 {currentUser?.name || 'Kullanıcı Seçin'}</span>
-          <button 
-            className="change-user-btn"
-            onClick={() => openUserSelect()}
-          >
-            DEĞİŞTİR
+        <div className="header-right-controls">
+          <button className="theme-toggle-payment" onClick={toggleTheme}>
+            {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
+          </button>
+          <button className="user-info-btn" onClick={openUserSelect}>
+            <UserCircle2 size={22} />
+            <span>{currentUser?.name || 'Garson Seç'}</span>
+            <RefreshCw size={16} className="change-icon" />
           </button>
         </div>
       </header>
@@ -211,7 +232,7 @@ const QuickSale = () => {
                     onClick={() => updateQuantity(item.id, 1)}
                   >
                     <div className="item-name">{item.productName}</div>
-                    <div className="item-price">{item.totalPrice.toFixed(2)}₺</div>
+                    <div className="item-price">{formatPrice(item.totalPrice)}₺</div>
                   </div>
                   
                   <button 
@@ -229,7 +250,7 @@ const QuickSale = () => {
           <div className="cart-footer">
             <div className="cart-actions">
               <div className="cart-total">
-                <span className="total-amount">{totalAmount.toFixed(2)}₺</span>
+                <span className="total-amount">{formatPrice(totalAmount)}₺</span>
               </div>
               <button 
                 className="pay-button"
@@ -246,13 +267,28 @@ const QuickSale = () => {
         <main className="products-panel">
           {/* Kategori Menüsü - Sağ Sidebar */}
           <div className="category-sidebar">
+            {/* Tümü butonu */}
+            <button
+              className={`category-btn ${selectedCategoryId === null ? 'active' : ''}`}
+              onClick={() => {
+                console.log('Kategori seçildi: Tümü');
+                setSelectedCategoryId(null);
+              }}
+            >
+              Tümü
+            </button>
+            
+            {/* Kategoriler */}
             {categories.map((category) => (
               <button
-                key={category}
-                className={`category-btn ${selectedCategory === category ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(category)}
+                key={category.id}
+                className={`category-btn ${selectedCategoryId === category.id ? 'active' : ''}`}
+                onClick={() => {
+                  console.log('Kategori seçildi:', category.name, 'ID:', category.id);
+                  setSelectedCategoryId(category.id);
+                }}
               >
-                {category}
+                {category.name}
               </button>
             ))}
           </div>
