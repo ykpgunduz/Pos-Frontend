@@ -25,7 +25,7 @@ const Tables = () => {
   const [tables, setTables] = useState<Table[]>([]);
   const [orders, setOrders] = useState<TableOrder[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'bird'>('grid');
-  const [selectedArea, setSelectedArea] = useState('salon');
+  const [selectedArea, setSelectedArea] = useState('tumu');
   const [loading, setLoading] = useState(true);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [showActions, setShowActions] = useState(false);
@@ -33,7 +33,7 @@ const Tables = () => {
   const [selectedTableRef, setSelectedTableRef] = useState<HTMLDivElement | null>(null);
   const [tableCount, setTableCount] = useState<number>(0);
   const [cafeId, setCafeId] = useState<number | null>(null);
-  const areas = ['tumu', 'bahce', 'salon', 'kat'];
+  const [areas, setAreas] = useState<string[]>(['tumu']); // Dinamik area listesi
 
   const handleTableContextMenu = (e: React.MouseEvent, tableId: number) => {
     e.preventDefault();
@@ -73,159 +73,127 @@ const Tables = () => {
   };
 
   useEffect(() => {
-    loadCafeInfo();
-    loadOrders();
+    const initPage = async () => {
+      setLoading(true);
+      await loadCafeInfo();
+      loadOrders();
+    };
+    
+    initPage();
   }, []);
 
   useEffect(() => {
-    // tableCount ve cafeId yüklendikten sonra masaları getir
-    if (tableCount > 0 && cafeId) {
+    // cafeId yüklendikten sonra masaları getir
+    if (cafeId) {
       loadTables();
+    } else {
+      // Cafe ID yoksa loading'i kapat
+      setLoading(false);
     }
-  }, [tableCount, cafeId]);
+  }, [cafeId]);
 
   useEffect(() => {
     const handleResize = () => {
-      // Pencere boyutu değiştiğinde tabloları yeniden yükle
-      if (tableCount > 0 && cafeId) {
-        loadTables();
-      }
+      // Pencere boyutu değiştiğinde ekranı yeniden render et
+      // Masaları tekrar yüklemek gerekmez
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [tableCount, cafeId]);
+  }, []);
 
   const loadCafeInfo = async () => {
     try {
       const cafe = await cafeService.getCurrentCafe();
       setCafeId(cafe.id);
-      // Masa sayısını maksimum 50 ile sınırla (daha gerçekçi)
-      const maxTables = Math.min(cafe.table_count, 50);
-      setTableCount(maxTables);
-      console.log('✅ Cafe bilgisi yüklendi:', { cafeId: cafe.id, cafeName: cafe.name, tableCount: maxTables });
+      setTableCount(cafe.table_count);
+      console.log('✅ Cafe bilgisi yüklendi:', { cafeId: cafe.id, cafeName: cafe.name, tableCount: cafe.table_count });
     } catch (err) {
       console.error('❌ Cafe bilgisi yüklenemedi:', err);
-      // Hata durumunda varsayılan olarak 10 masa göster
-      setTableCount(10);
+      setTableCount(0);
       setCafeId(null);
     }
   };
 
   const loadTables = async () => {
+    if (!cafeId) {
+      console.warn('⚠️ Cafe ID yok, masalar yüklenemiyor');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       
-      // Önce cafe'nin masalarını API'den al
-      const apiTables = await tableService.getCurrentCafeTables();
-      console.log('📋 API\'den gelen masalar:', apiTables.length);
+      // API çağrılarını paralel yap (daha hızlı)
+      const [apiTables, activeCarts] = await Promise.all([
+        tableService.getCurrentCafeTables(cafeId).catch(err => {
+          console.error('❌ Masalar yüklenemedi:', err);
+          return [];
+        }),
+        cartService.getList().catch(err => {
+          console.warn('⚠️ Aktif sepetler yüklenemedi:', err);
+          return [];
+        })
+      ]);
 
-      // Eğer cafe'nin table_count'ı varsa ve API'den gelen masa sayısı az ise
-      if (cafeId && tableCount > 0) {
-        if (apiTables.length === 0) {
-          // Hiç masa yoksa, cafe için masalar oluştur
-          console.log('🔨 Masalar oluşturuluyor... Cafe ID:', cafeId, 'Masa Sayısı:', tableCount);
-          
-          const generatedTables: Table[] = [];
-          const areas: Array<'bahce' | 'salon' | 'kat'> = ['bahce', 'salon', 'kat'];
-          
-          for (let i = 1; i <= tableCount; i++) {
-            const areaIndex = Math.floor((i - 1) / Math.ceil(tableCount / 3));
-            const newTable: Omit<Table, 'id'> = {
-              tableNumber: `M${i}`,
-              capacity: 4,
-              status: 'available',
-              area: areas[Math.min(areaIndex, 2)],
-              currentGuests: 0,
-              cafe_id: cafeId
-            };
-            
-            try {
-              // Backend'e masa oluştur
-              const createdTable = await tableService.createTable(newTable);
-              generatedTables.push(createdTable);
-              console.log(`✅ Masa ${i} oluşturuldu:`, createdTable);
-            } catch (err) {
-              console.error(`❌ Masa ${i} oluşturulamadı:`, err);
-              // Hata olursa frontend'de göster
-              generatedTables.push({
-                id: i,
-                ...newTable
-              } as Table);
-            }
-          }
-          
-          setTables(generatedTables);
-          console.log('✅ Toplam oluşturulan masa sayısı:', generatedTables.length);
-        } else if (apiTables.length < tableCount) {
-          // Eksik masalar varsa tamamla
-          console.log('⚠️ Eksik masalar var. Tamamlanıyor...');
-          const generatedTables: Table[] = [...apiTables];
-          const existingIds = new Set(apiTables.map(t => t.id));
-          const areas: Array<'bahce' | 'salon' | 'kat'> = ['bahce', 'salon', 'kat'];
-          
-          for (let i = 1; i <= tableCount; i++) {
-            if (!existingIds.has(i)) {
-              const areaIndex = Math.floor((i - 1) / Math.ceil(tableCount / 3));
-              const newTable: Omit<Table, 'id'> = {
-                tableNumber: `M${i}`,
-                capacity: 4,
-                status: 'available',
-                area: areas[Math.min(areaIndex, 2)],
-                currentGuests: 0,
-                cafe_id: cafeId
-              };
-              
-              try {
-                const createdTable = await tableService.createTable(newTable);
-                generatedTables.push(createdTable);
-                console.log(`✅ Eksik masa ${i} oluşturuldu`);
-              } catch (err) {
-                console.error(`❌ Eksik masa ${i} oluşturulamadı:`, err);
-                generatedTables.push({
-                  id: i,
-                  ...newTable
-                } as Table);
-              }
-            }
-          }
-          
-          setTables(generatedTables.sort((a, b) => a.id - b.id));
-          console.log('✅ Masalar tamamlandı:', generatedTables.length);
-        } else {
-          // Tüm masalar mevcut
-          setTables(apiTables);
-          console.log('✅ Masalar yüklendi:', apiTables.length);
-        }
-      } else {
-        // Cafe bilgisi yoksa sadece API'den gelen masaları göster
-        setTables(apiTables);
-        console.log('⚠️ Cafe bilgisi yok, sadece API masaları gösteriliyor');
+      console.log('📋 API\'den gelen masalar:', apiTables);
+      console.log('🛒 Aktif sepetler:', activeCarts);
+
+      // Masaları detaylı listele
+      if (apiTables.length > 0) {
+        console.log('📋 Masa Listesi:');
+        console.table(apiTables.map((table: any) => ({
+          ID: table.id,
+          İsim: table.name || table.tableNumber || `Masa ${table.table_number}`,
+          Alan: table.area || 'tanımsız',
+          Kapasite: table.capacity || 0,
+          CafeID: table.cafe_id
+        })));
       }
-    } catch (err) {
-      console.error('❌ Masalar yüklenemedi:', err);
+
+      // API'den gelen verileri frontend formatına çevir
+      const formattedTables: Table[] = apiTables.map((table: any) => {
+        // Bu masa için aktif bir sepet var mı?
+        const tableCart = activeCarts.find((cart: any) => {
+          // Cart'ta table_id veya tableId olabilir
+          const cartTableId = cart.table_id || cart.tableId;
+          return cartTableId === table.id;
+        });
+
+        return {
+          id: table.id,
+          tableNumber: table.name || table.tableNumber || `Masa ${table.table_number}`,
+          capacity: table.capacity || 4,
+          status: tableCart ? 'occupied' : 'available', // Sepeti varsa dolu, yoksa boş
+          area: (table.area || 'salon') as 'bahce' | 'salon' | 'kat',
+          currentGuests: tableCart ? (tableCart.guest_count || 0) : 0,
+          cafe_id: table.cafe_id,
+          currentOrder: tableCart ? {
+            id: tableCart.id,
+            tableId: table.id,
+            items: tableCart.items || [],
+            totalAmount: Number(tableCart.total_amount || tableCart.totalAmount || 0),
+            status: 'active',
+            createdAt: tableCart.created_at || tableCart.createdAt || '',
+            updatedAt: tableCart.updated_at || tableCart.updatedAt || ''
+          } : undefined
+        };
+      });
+
+      setTables(formattedTables);
+      console.log('✅ Masalar yüklendi:', formattedTables.length);
       
-      // Hata durumunda frontend'de masalar oluştur
-      if (cafeId && tableCount > 0) {
-        const generatedTables: Table[] = [];
-        const areas: Array<'bahce' | 'salon' | 'kat'> = ['bahce', 'salon', 'kat'];
-        
-        for (let i = 1; i <= tableCount; i++) {
-          const areaIndex = Math.floor((i - 1) / Math.ceil(tableCount / 3));
-          generatedTables.push({
-            id: i,
-            tableNumber: `M${i}`,
-            capacity: 4,
-            status: 'available',
-            area: areas[Math.min(areaIndex, 2)],
-            currentGuests: 0,
-            cafe_id: cafeId
-          });
-        }
-        
-        setTables(generatedTables);
-        console.log('⚠️ API hatası - Frontend masaları gösteriliyor:', generatedTables.length);
-      }
+      // Dinamik olarak areaları oluştur
+      const uniqueAreas = Array.from(new Set(formattedTables.map(t => t.area).filter(Boolean)));
+      const areaList = ['tumu', ...uniqueAreas];
+      setAreas(areaList);
+      console.log('📍 Bulunan arealar:', areaList);
+      
+    } catch (err) {
+      console.error('❌ Beklenmeyen hata:', err);
+      setTables([]);
+      setAreas(['tumu']);
     } finally {
       setLoading(false);
     }
@@ -258,6 +226,13 @@ const Tables = () => {
       case 'reserved': return 'reserved';
       default: return 'available';
     }
+  };
+
+  const getAreaDisplayName = (area: string): string => {
+    if (area === 'tumu') return 'Tümü';
+    
+    // Area ismini capitalize et (ilk harf büyük)
+    return area.charAt(0).toUpperCase() + area.slice(1).toLowerCase();
   };
 
   const getStatusText = (status: Table['status'], guests?: number) => {
@@ -301,10 +276,7 @@ const Tables = () => {
                   className={`floor-tab ${selectedArea === area ? 'active' : ''}`}
                   onClick={() => setSelectedArea(area)}
                 >
-                  {area === 'tumu' && 'Tümü'}
-                  {area === 'bahce' && 'Bahçe'}
-                  {area === 'salon' && 'Salon'}
-                  {area === 'kat' && 'Kat'}
+                  {getAreaDisplayName(area)}
                 </button>
               ))}
             </div>
@@ -391,13 +363,20 @@ const Tables = () => {
 
         {/* Main Content - Tables Grid */}
         <main className="tables-main">
-          <div 
-            className={`tables-grid ${viewMode === 'bird' ? 'bird-view' : ''}`}
-            data-area={selectedArea}
-          >
-            {tables
-              .filter(table => selectedArea === 'tumu' ? true : table.area === selectedArea)
-              .map((table) => {
+          {tables.length === 0 && !loading ? (
+            <div className="empty-state">
+              <div>🪑</div>
+              <h3>Henüz masa tanımlanmamış</h3>
+              <p>Lütfen Settings sayfasından masa ekleyin veya yöneticinizle iletişime geçin.</p>
+            </div>
+          ) : (
+            <div 
+              className={`tables-grid ${viewMode === 'bird' ? 'bird-view' : ''}`}
+              data-area={selectedArea}
+            >
+              {tables
+                .filter(table => selectedArea === 'tumu' ? true : table.area === selectedArea)
+                .map((table) => {
               const statusClass = getStatusColor(table.status);
               const statusText = getStatusText(table.status, table.currentGuests);
               
@@ -418,14 +397,16 @@ const Tables = () => {
                         </div>
                       </div>
                       
-                      {table.status === 'occupied' && (
+                      {table.status === 'occupied' && table.currentOrder && (
                         <div className="table-occupied-info">
                           <div className="table-amount">
-                            ₺{(Math.random() * 300 + 50).toFixed(2)}
+                            ₺{table.currentOrder.totalAmount.toFixed(2)}
                           </div>
                           <div className="table-meta">
                             <div className="table-time">
-                              {Math.floor(Math.random() * 2) + 16}:{Math.floor(Math.random() * 60).toString().padStart(2, '0')}
+                              {table.currentOrder.createdAt ? 
+                                new Date(table.currentOrder.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) 
+                                : '--:--'}
                             </div>
                             <div className="table-waiter">{currentUser?.name || 'Garson'}</div>
                           </div>
@@ -456,7 +437,8 @@ const Tables = () => {
                 </div>
               );
             })}
-          </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

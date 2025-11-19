@@ -8,11 +8,12 @@ export const tableService = {
     return response.data.data;
   },
 
-  // Mevcut cafe'nin masalarını getir
-  getCurrentCafeTables: async (): Promise<Table[]> => {
+  // Mevcut cafe'nin masalarını getir (table-definitions endpoint kullanarak)
+  getCurrentCafeTables: async (cafeId: number): Promise<any[]> => {
     try {
-      const response = await api.get<ApiResponse<Table[]>>('/tables/cafe/me');
-      return response.data.data || [];
+      // Cafe'ye ait masa tanımlarını getir
+      const response = await api.get(`/table-definitions/cafe/${cafeId}`);
+      return response.data || [];
     } catch (error) {
       console.error('Cafe masaları yüklenemedi:', error);
       return [];

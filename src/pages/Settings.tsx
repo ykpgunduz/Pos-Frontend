@@ -3,16 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Moon, Sun, RefreshCw } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { cacheService } from '../services/cacheService';
+import { tableDefinitionService, TableDefinition } from '../services/tableDefinitionService';
+import { useUser } from '../contexts/UserContext';
 import './Settings.css';
 
 interface SettingsProps {}
 
+interface Table {
+  id: number;
+  name: string;
+  capacity: number;
+  type: 'round' | 'square' | 'rectangle';
+  x: number;
+  y: number;
+  cafe_id?: number;
+  table_number?: number;
+  area?: string;
+}
+
 const Settings: React.FC<SettingsProps> = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { currentUser } = useUser();
   const [notifications, setNotifications] = useState(false);
   const [activeMenu, setActiveMenu] = useState('sistem');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [cacheInfo, setCacheInfo] = useState({
     lastUpdate: null as Date | null,
     productCount: 0,
@@ -20,13 +36,246 @@ const Settings: React.FC<SettingsProps> = () => {
     hasCache: false,
   });
 
+  // Masa yönetimi state'leri
+  const [tables, setTables] = useState<Table[]>([]);
+  const [draggingTable, setDraggingTable] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [selectedArea, setSelectedArea] = useState<string>('all'); // Area filtresi
+
   useEffect(() => {
     loadCacheInfo();
-  }, []);
+    if (currentUser && activeMenu === 'masalar') {
+      loadTables();
+    }
+  }, [currentUser, activeMenu]);
+
+  const loadTables = async () => {
+    if (!currentUser?.cafeId) {
+      console.warn('Kafe seçilmedi');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const apiTables = await tableDefinitionService.getTablesByCafe(currentUser.cafeId);
+      
+      // API'den gelen verileri local Table formatına çevir
+      const formattedTables: Table[] = apiTables.map((apiTable: TableDefinition) => ({
+        id: apiTable.id,
+        name: apiTable.name,
+        capacity: apiTable.capacity || 4,
+        type: determineTableType(apiTable.capacity || 4),
+        x: apiTable.position_x ? parseInt(apiTable.position_x) : 0,
+        y: apiTable.position_y ? parseInt(apiTable.position_y) : 0,
+        cafe_id: apiTable.cafe_id,
+        table_number: apiTable.table_number,
+        area: apiTable.area || undefined,
+      }));
+
+      setTables(formattedTables);
+    } catch (error) {
+      console.error('Masalar yüklenirken hata:', error);
+      alert('Masalar yüklenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Kapasite ve masa tipini belirle
+  const determineTableType = (capacity: number): 'round' | 'square' | 'rectangle' => {
+    if (capacity <= 2) return 'square';
+    if (capacity <= 4) return 'round';
+    return 'rectangle';
+  };
 
   const loadCacheInfo = () => {
     const info = cacheService.getCacheInfo();
     setCacheInfo(info);
+  };
+
+  // Benzersiz alanları al
+  const getUniqueAreas = (): string[] => {
+    const areas = tables
+      .map(t => t.area)
+      .filter((area): area is string => area !== undefined && area !== null && area !== '');
+    return ['all', ...Array.from(new Set(areas))];
+  };
+
+  // Filtrelenmiş yerleştirilmemiş masalar
+  const getUnplacedTables = () => {
+    const unplaced = tables.filter(t => t.x === 0 && t.y === 0);
+    if (selectedArea === 'all') {
+      return unplaced;
+    }
+    return unplaced.filter(t => t.area === selectedArea);
+  };
+
+  // Yeni masa ekle
+  const handleAddNewTable = async () => {
+    if (!currentUser?.cafeId) {
+      alert('Kafe bilgisi bulunamadı!');
+      return;
+    }
+
+    const tableName = prompt('Masa adı:');
+    if (!tableName) return;
+
+    const area = prompt('Alan (örn: teras, bahçe, salon):', 'salon');
+    if (!area) return;
+
+    const capacityStr = prompt('Kapasite (kişi sayısı):', '4');
+    if (!capacityStr) return;
+
+    const capacity = parseInt(capacityStr);
+    if (isNaN(capacity) || capacity < 1) {
+      alert('Geçerli bir kapasite girin!');
+      return;
+    }
+
+    const tableNumber = tables.length + 1;
+
+    setLoading(true);
+    try {
+      const newTable = await tableDefinitionService.createTable({
+        cafe_id: currentUser.cafeId,
+        name: tableName,
+        area: area,
+        table_number: tableNumber,
+        capacity: capacity,
+        position_x: '0',
+        position_y: '0',
+        is_active: true,
+      });
+
+      // Yeni masayı listeye ekle
+      const formattedTable: Table = {
+        id: newTable.id,
+        name: newTable.name,
+        capacity: newTable.capacity || 4,
+        type: determineTableType(newTable.capacity || 4),
+        x: 0,
+        y: 0,
+        cafe_id: newTable.cafe_id,
+        table_number: newTable.table_number,
+        area: newTable.area || area,
+      };
+
+      setTables(prev => [...prev, formattedTable]);
+      alert('Yeni masa başarıyla eklendi!');
+    } catch (error) {
+      console.error('Masa eklenirken hata:', error);
+      alert('Masa eklenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Masa sil
+  const handleDeleteTable = async (tableId: number) => {
+    if (!window.confirm('Bu masayı silmek istediğinizden emin misiniz?')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await tableDefinitionService.deleteTable(tableId);
+      setTables(prev => prev.filter(t => t.id !== tableId));
+      alert('Masa başarıyla silindi!');
+    } catch (error) {
+      console.error('Masa silinirken hata:', error);
+      alert('Masa silinirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Masa sürükle-bırak fonksiyonları
+  const handleTableMouseDown = (tableId: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    const table = tables.find(t => t.id === tableId);
+    if (!table) return;
+
+    const gridElement = (e.currentTarget as HTMLElement).parentElement;
+    if (!gridElement) return;
+
+    const rect = gridElement.getBoundingClientRect();
+    const gridSize = 30; // 30px per unit
+    const gridSizeY = 40; // 40px per unit for Y
+
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    const tableX = table.x * gridSize;
+    const tableY = table.y * gridSizeY;
+
+    setDragOffset({
+      x: clickX - tableX,
+      y: clickY - tableY
+    });
+    setDraggingTable(tableId);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (draggingTable === null) return;
+
+    const gridElement = e.currentTarget as HTMLElement;
+    const rect = gridElement.getBoundingClientRect();
+    const gridSize = 30;
+    const gridSizeY = 40;
+
+    let newX = Math.round((e.clientX - rect.left - dragOffset.x) / gridSize);
+    let newY = Math.round((e.clientY - rect.top - dragOffset.y) / gridSizeY);
+
+    // Sınırları kontrol et (0-30 X, 0-15 Y)
+    newX = Math.max(0, Math.min(30, newX));
+    newY = Math.max(0, Math.min(15, newY));
+
+    setTables(prev => prev.map(table =>
+      table.id === draggingTable
+        ? { ...table, x: newX, y: newY }
+        : table
+    ));
+  };
+
+  const handleMouseUp = () => {
+    if (draggingTable !== null) {
+      console.log('Masa konumu güncellendi:', tables.find(t => t.id === draggingTable));
+      setDraggingTable(null);
+    }
+  };
+
+  const handleSaveLayout = async () => {
+    if (!currentUser?.cafeId) {
+      alert('Kafe bilgisi bulunamadı!');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Sadece pozisyonu değişmiş masaları güncelle
+      const updates = tables
+        .filter(table => table.x !== 0 || table.y !== 0) // Yerleştirilmiş masalar
+        .map(table => ({
+          id: table.id,
+          x: table.x,
+          y: table.y
+        }));
+
+      if (updates.length === 0) {
+        alert('Yerleştirilmiş masa bulunamadı!');
+        return;
+      }
+
+      await tableDefinitionService.updateMultiplePositions(updates);
+      alert(`${updates.length} masanın konumu başarıyla kaydedildi!`);
+      
+      // Masaları yeniden yükle
+      await loadTables();
+    } catch (error) {
+      console.error('Masa düzeni kaydedilirken hata:', error);
+      alert('Masa düzeni kaydedilirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRefreshCache = async () => {
@@ -81,6 +330,13 @@ const Settings: React.FC<SettingsProps> = () => {
             >
               <span className="menu-icon">⚙️</span>
               Sistem
+            </button>
+            <button 
+              className={`menu-item ${activeMenu === 'masalar' ? 'active' : ''}`}
+              onClick={() => setActiveMenu('masalar')}
+            >
+              <span className="menu-icon">🪑</span>
+              Masa Yönetimi
             </button>
             <button 
               className={`menu-item ${activeMenu === 'uygulama' ? 'active' : ''}`}
@@ -297,6 +553,249 @@ const Settings: React.FC<SettingsProps> = () => {
                 <button onClick={() => window.open('https://portal.example.com', '_blank')}>
                   Web Portal'a Git <span>↗</span>
                 </button>
+              </div>
+            </>
+          )}
+
+          {activeMenu === 'masalar' && (
+            <>
+              <div className="settings-section">
+                <div className="section-header-with-actions">
+                  <div className="section-title-group">
+                    <h3>MASA YÖNETİMİ</h3>
+                  </div>
+                  <div className="section-actions">
+                    <button 
+                      className="add-table-btn" 
+                      onClick={handleAddNewTable}
+                      disabled={loading}
+                    >
+                      + Yeni Masa
+                    </button>
+                    <button 
+                      className="save-layout-btn" 
+                      onClick={handleSaveLayout}
+                      disabled={loading}
+                    >
+                      {loading ? '⏳ Kaydediliyor...' : '💾 Düzeni Kaydet'}
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="table-management-full">
+                  <div className="layout-panel-full">
+                    <div className="layout-canvas">
+                      {loading && (
+                        <div className="loading-overlay">
+                          <div className="loading-spinner">⏳ Yükleniyor...</div>
+                        </div>
+                      )}
+                      
+                      {/* Yerleştirilmemiş masalar listesi */}
+                      <div className="unplaced-tables">
+                        <div className="unplaced-header">
+                          <h5>Yerleştirilmemiş Masalar</h5>
+                          {getUniqueAreas().length > 1 && (
+                            <div className="area-filter-buttons">
+                              {getUniqueAreas().map(area => (
+                                <button
+                                  key={area}
+                                  className={`area-filter-btn ${selectedArea === area ? 'active' : ''}`}
+                                  onClick={() => setSelectedArea(area)}
+                                >
+                                  {area === 'all' ? '🏠 Tümü' : `📍 ${area.charAt(0).toUpperCase() + area.slice(1)}`}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="unplaced-tables-list">
+                          {getUnplacedTables().map((table) => (
+                            <div 
+                              key={table.id}
+                              className={`unplaced-table-item`}
+                              onMouseDown={(e) => handleTableMouseDown(table.id, e)}
+                              title={`${table.name} - Sürükleyerek yerleştirin`}
+                            >
+                              {/* Mini önizleme */}
+                              <div className="mini-table-preview">
+                                {table.type === 'round' && (
+                                  <div className="table-realistic round-table">
+                                    <div className="table-top">
+                                      <span className="table-label">{table.capacity}</span>
+                                    </div>
+                                    <div className="chairs">
+                                      {[...Array(Math.min(table.capacity, 6))].map((_, i) => (
+                                        <div 
+                                          key={i} 
+                                          className="chair" 
+                                          style={{
+                                            transform: `rotate(${(360 / Math.min(table.capacity, 6)) * i}deg) translateY(-38px)`
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {table.type === 'square' && (
+                                  <div className="table-realistic square-table">
+                                    <div className="table-top">
+                                      <span className="table-label">{table.capacity}</span>
+                                    </div>
+                                    <div className="chairs">
+                                      {table.capacity === 2 ? (
+                                        <>
+                                          <div className="chair top" />
+                                          <div className="chair bottom" />
+                                        </>
+                                      ) : (
+                                        <>
+                                          <div className="chair top" />
+                                          <div className="chair right" />
+                                          <div className="chair bottom" />
+                                          <div className="chair left" />
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {table.type === 'rectangle' && (
+                                  <div className="table-realistic rectangle-table">
+                                    <div className="table-top">
+                                      <span className="table-label">{table.capacity}</span>
+                                    </div>
+                                    <div className="chairs">
+                                      {[...Array(Math.floor(table.capacity / 2))].map((_, i) => (
+                                        <div key={`top-${i}`} className="chair top" style={{ left: `${20 + i * 30}px` }} />
+                                      ))}
+                                      {[...Array(Math.ceil(table.capacity / 2))].map((_, i) => (
+                                        <div key={`bottom-${i}`} className="chair bottom" style={{ left: `${20 + i * 30}px` }} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <span className="table-name">{table.name}</span>
+                              <small className="table-capacity">{table.capacity} Kişi</small>
+                              {table.area && (
+                                <small className="table-area-badge">{table.area}</small>
+                              )}
+                              <button 
+                                className="delete-table-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTable(table.id);
+                                }}
+                                title="Masayı Sil"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          ))}
+                          {getUnplacedTables().length === 0 && (
+                            <p className="no-unplaced">
+                              {selectedArea === 'all' 
+                                ? 'Tüm masalar yerleştirildi ✓' 
+                                : `${selectedArea.charAt(0).toUpperCase() + selectedArea.slice(1)} alanında yerleştirilmemiş masa yok`
+                              }
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div 
+                        className="dotted-grid"
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                      >
+                        {tables.filter(t => t.x !== 0 || t.y !== 0).map((table) => (
+                          <div 
+                            key={table.id}
+                            className={`table-marker table-${table.type} ${draggingTable === table.id ? 'dragging' : ''}`}
+                            style={{
+                              left: `${table.x * 30}px`,
+                              top: `${table.y * 40}px`
+                            }}
+                            onMouseDown={(e) => handleTableMouseDown(table.id, e)}
+                            title={`${table.name} (X:${table.x}, Y:${table.y})`}
+                          >
+                            {/* Yuvarlak Masa */}
+                            {table.type === 'round' && (
+                              <div className="table-realistic round-table">
+                                <div className="table-top">
+                                  <span className="table-label">{table.name}</span>
+                                </div>
+                                <div className="chairs">
+                                  {[...Array(table.capacity)].map((_, i) => (
+                                    <div 
+                                      key={i} 
+                                      className="chair" 
+                                      style={{
+                                        transform: `rotate(${(360 / table.capacity) * i}deg) translateY(-38px)`
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Kare Masa */}
+                            {table.type === 'square' && (
+                              <div className="table-realistic square-table">
+                                <div className="table-top">
+                                  <span className="table-label">{table.name}</span>
+                                </div>
+                                <div className="chairs">
+                                  {table.capacity === 2 && (
+                                    <>
+                                      <div className="chair top" />
+                                      <div className="chair bottom" />
+                                    </>
+                                  )}
+                                  {table.capacity === 4 && (
+                                    <>
+                                      <div className="chair top" />
+                                      <div className="chair right" />
+                                      <div className="chair bottom" />
+                                      <div className="chair left" />
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Dikdörtgen Masa */}
+                            {table.type === 'rectangle' && (
+                              <div className="table-realistic rectangle-table">
+                                <div className="table-top">
+                                  <span className="table-label">{table.name}</span>
+                                </div>
+                                <div className="chairs">
+                                  {[...Array(Math.floor(table.capacity / 2))].map((_, i) => (
+                                    <div key={`top-${i}`} className="chair top" style={{ left: `${20 + i * 30}px` }} />
+                                  ))}
+                                  {[...Array(Math.ceil(table.capacity / 2))].map((_, i) => (
+                                    <div key={`bottom-${i}`} className="chair bottom" style={{ left: `${20 + i * 30}px` }} />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="layout-info">
+                        <p>💡 Masaları sürükleyerek harita üzerine yerleştirin</p>
+                        <p>📍 Yerleştirilen masalar otomatik olarak koordinatlarına kaydedilir</p>
+                        <p>🔵 Yuvarlak | 🟦 Kare | 🟩 Dikdörtgen masa tipleri</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           )}
