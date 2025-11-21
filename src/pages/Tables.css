@@ -92,65 +92,100 @@
   margin-left: auto;
 }
 
-.waiter-info {
+/* Tema Toggle Butonu */
+.theme-toggle-payment {
+  background: var(--card-bg, white);
+  border: 2px solid var(--border-color, #ddd);
+  border-radius: 50%;
+  width: 45px;
+  height: 45px;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 1rem;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: all 0.3s ease;
+  color: var(--text-primary);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.theme-toggle-payment svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+}
+
+.theme-toggle-payment:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md, 0 4px 8px rgba(0, 0, 0, 0.15));
+  background: var(--primary, #6c5ce7);
+  color: white;
+  border-color: var(--primary, #6c5ce7);
+}
+
+/* User Info Button */
+.user-info-btn {
+  background: var(--card-bg, white);
+  border: 2px solid var(--border-color, #ddd);
+  border-radius: 30px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: all 0.3s ease;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 1rem;
+  white-space: nowrap;
+  min-height: 50px;
+}
+
+.user-info-btn svg {
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.user-info-btn .change-icon {
+  opacity: 0.6;
+  transition: all 0.3s ease;
+}
+
+.user-info-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md, 0 4px 8px rgba(0, 0, 0, 0.15));
+  background: var(--primary, #6c5ce7);
+  color: white;
+  border-color: var(--primary, #6c5ce7);
+}
+
+.user-info-btn:hover .change-icon {
+  opacity: 1;
+  transform: rotate(180deg);
+}
+
+/* Eski sınıfları gizle (geriye dönük uyumluluk için) */
+.waiter-info {
+  display: none;
 }
 
 .waiter-name {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 0.9rem;
+  display: none;
 }
 
 .change-waiter-btn {
-  padding: 0.25rem 0.75rem !important;
-  background: var(--primary) !important;
-  color: white !important;
-  border: none !important;
-  border-radius: var(--radius-md) !important;
-  font-size: 0.8rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.change-waiter-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  display: none;
 }
 
 .waiter-btn-icon {
   display: none;
 }
 
-@media (max-width: 1024px) {
-  .waiter-btn-text {
-    display: none;
-  }
-  
-  .waiter-btn-icon {
-    display: block;
-  }
-
-  .change-waiter-btn {
-    padding: 0.4rem !important;
-  }
-}
 
 .view-toggle {
-  padding: 0.75rem !important;
-  background: var(--bg-tertiary) !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: var(--radius-md) !important;
-  color: var(--text-primary) !important;
+  display: none;
 }
 
 .tables-content {
@@ -1155,6 +1190,26 @@
   .table-card.bird-card {
     width: 55px;
     height: 55px;
+  }
+}
+
+/* Responsive - Mobil cihazlarda kullanıcı ismini gizle */
+@media (max-width: 640px) {
+  .user-info-btn span {
+    display: none;
+  }
+  
+  .user-info-btn .change-icon {
+    display: none;
+  }
+  
+  .user-info-btn {
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    justify-content: center;
+    min-height: unset;
   }
 }
 

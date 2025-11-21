@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Moon, Sun, UserCircle2, RefreshCw } from 'lucide-react';
+import { Moon, Sun, UserCircle2, RefreshCw, Bell, ArrowLeft } from 'lucide-react';
 import './Payment.css';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
+import { useNotification } from '../contexts/NotificationContext';
+import NotificationPanel from '../components/NotificationPanel';
 import UserSelect from '../components/UserSelect';
 
 interface PaymentItem {
@@ -24,6 +26,7 @@ const Payment = () => {
   const { orderId } = useParams();
   const { theme, toggleTheme } = useTheme();
   const { currentUser, openUserSelect } = useUser();
+  const { showPanel, setShowPanel, notifications } = useNotification();
   const [orderItems, setOrderItems] = useState<PaymentItem[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [paidAmount, setPaidAmount] = useState(0);
@@ -262,6 +265,7 @@ const Payment = () => {
   };
 
   return (
+    <>
     <div className="payment-container">
       {/* Loading Modal */}
       {isProcessingPayment && (
@@ -292,6 +296,19 @@ const Payment = () => {
         <div className="header-right-controls">
           <button className="theme-toggle-payment" onClick={toggleTheme}>
             {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
+          </button>
+          <button 
+            className="notification-btn"
+            onClick={() => setShowPanel(!showPanel)}
+            title="Bildirimler"
+            aria-label="Bildirim panelini aç"
+          >
+            <Bell size={24} />
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="notification-badge">
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
           </button>
           <button className="user-info-btn" onClick={openUserSelect}>
             <UserCircle2 size={22} />
@@ -513,6 +530,9 @@ const Payment = () => {
     {/* User Select Modal */}
     <UserSelect />
     </div>
+    <NotificationPanel />
+    <UserSelect />
+    </>
   );
 };
 

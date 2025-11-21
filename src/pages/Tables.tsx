@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Moon, Sun, Grid3x3, LayoutGrid, LogOut } from 'lucide-react';
+import { ArrowLeft, Moon, Sun, Grid3x3, LayoutGrid, LogOut, Loader2, UserCircle2, RefreshCw, Bird, Bell } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { Table } from '../types';
-import { tableService } from '../services/tableService';
+import { tableDefinitionService } from '../services/tableDefinitionService';
 import { cartService } from '../services/cartService';
-import { cafeService } from '../services/cafeService';
+import NotificationPanel from '../components/NotificationPanel';
 import { createPortal } from 'react-dom';
 import './Tables.css';
 
@@ -22,6 +23,7 @@ const Tables = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { currentUser, openUserSelect } = useUser();
+  const { showPanel, setShowPanel, notifications } = useNotification();
   const [tables, setTables] = useState<Table[]>([]);
   const [orders, setOrders] = useState<TableOrder[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'bird'>('grid');
@@ -29,10 +31,7 @@ const Tables = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [showActions, setShowActions] = useState(false);
-  const [actionPosition, setActionPosition] = useState({ x: 0, y: 0 });
   const [selectedTableRef, setSelectedTableRef] = useState<HTMLDivElement | null>(null);
-  const [tableCount, setTableCount] = useState<number>(0);
-  const [cafeId, setCafeId] = useState<number | null>(null);
   const [areas, setAreas] = useState<string[]>(['tumu']); // Dinamik area listesi
 
   const handleTableContextMenu = (e: React.MouseEvent, tableId: number) => {
@@ -75,22 +74,15 @@ const Tables = () => {
   useEffect(() => {
     const initPage = async () => {
       setLoading(true);
-      await loadCafeInfo();
-      loadOrders();
+      // Tüm verileri paralel yükle (daha hızlı)
+      await Promise.all([
+        loadTables(),
+        loadOrders()
+      ]);
     };
     
     initPage();
   }, []);
-
-  useEffect(() => {
-    // cafeId yüklendikten sonra masaları getir
-    if (cafeId) {
-      loadTables();
-    } else {
-      // Cafe ID yoksa loading'i kapat
-      setLoading(false);
-    }
-  }, [cafeId]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -102,40 +94,23 @@ const Tables = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const loadCafeInfo = async () => {
-    try {
-      const cafe = await cafeService.getCurrentCafe();
-      setCafeId(cafe.id);
-      setTableCount(cafe.table_count);
-      console.log('✅ Cafe bilgisi yüklendi:', { cafeId: cafe.id, cafeName: cafe.name, tableCount: cafe.table_count });
-    } catch (err) {
-      console.error('❌ Cafe bilgisi yüklenemedi:', err);
-      setTableCount(0);
-      setCafeId(null);
-    }
-  };
-
   const loadTables = async () => {
-    if (!cafeId) {
-      console.warn('⚠️ Cafe ID yok, masalar yüklenemiyor');
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       
       // API çağrılarını paralel yap (daha hızlı)
-      const [apiTables, activeCarts] = await Promise.all([
-        tableService.getCurrentCafeTables(cafeId).catch(err => {
+      const [apiTablesResponse, activeCarts] = await Promise.all([
+        tableDefinitionService.getAllTables(1).catch(err => {
           console.error('❌ Masalar yüklenemedi:', err);
-          return [];
+          return { data: [] };
         }),
         cartService.getList().catch(err => {
           console.warn('⚠️ Aktif sepetler yüklenemedi:', err);
           return [];
         })
       ]);
+
+      const apiTables = apiTablesResponse.data || [];
 
       console.log('📋 API\'den gelen masalar:', apiTables);
       console.log('🛒 Aktif sepetler:', activeCarts);
@@ -161,12 +136,22 @@ const Tables = () => {
           return cartTableId === table.id;
         });
 
+        // Area ismini normalize et (küçük harfe çevir, Türkçe karakterleri düzelt)
+        const normalizedArea = (table.area || 'salon')
+          .toLowerCase()
+          .replace('ı', 'i')
+          .replace('ğ', 'g')
+          .replace('ü', 'u')
+          .replace('ş', 's')
+          .replace('ö', 'o')
+          .replace('ç', 'c');
+
         return {
           id: table.id,
           tableNumber: table.name || table.tableNumber || `Masa ${table.table_number}`,
           capacity: table.capacity || 4,
           status: tableCart ? 'occupied' : 'available', // Sepeti varsa dolu, yoksa boş
-          area: (table.area || 'salon') as 'bahce' | 'salon' | 'kat',
+          area: normalizedArea as 'bahce' | 'salon' | 'kat',
           currentGuests: tableCart ? (tableCart.guest_count || 0) : 0,
           cafe_id: table.cafe_id,
           currentOrder: tableCart ? {
@@ -184,8 +169,15 @@ const Tables = () => {
       setTables(formattedTables);
       console.log('✅ Masalar yüklendi:', formattedTables.length);
       
-      // Dinamik olarak areaları oluştur
-      const uniqueAreas = Array.from(new Set(formattedTables.map(t => t.area).filter(Boolean)));
+      // API'den gelen areaları topla (area boş olanları çıkar ve normalize et)
+      const uniqueAreas = Array.from(
+        new Set(
+          apiTables
+            .map((t: any) => t.area)
+            .filter((area: any) => area && area.trim() !== '')
+        )
+      ).sort(); // Alfabetik sırala
+      
       const areaList = ['tumu', ...uniqueAreas];
       setAreas(areaList);
       console.log('📍 Bulunan arealar:', areaList);
@@ -199,24 +191,21 @@ const Tables = () => {
     }
   };
 
-  const loadOrders = () => {
-    // Try to load recent carts (treat them as orders)
-    (async () => {
-      try {
-        const carts = await cartService.getList();
-        const mapped = (carts || []).map((c: any) => ({
-          id: c.id,
-          tableNumber: c.tableNumber || `Masa ${c.tableId ?? c.id}`,
-          time: (c.created_at || c.createdAt || '').slice(11,16) || '',
-          amount: Number(c.totalAmount ?? c.total_amount ?? 0),
-          waiter: c.waiter_name || c.waiter || currentUser?.name
-        }));
-        setOrders(mapped);
-      } catch (err) {
-        console.warn('Orders yüklenemedi, fallback mock kullanılıyor', err);
-        setOrders([]);
-      }
-    })();
+  const loadOrders = async () => {
+    try {
+      const carts = await cartService.getList();
+      const mapped = (carts || []).map((c: any) => ({
+        id: c.id,
+        tableNumber: c.tableNumber || `Masa ${c.tableId ?? c.id}`,
+        time: (c.created_at || c.createdAt || '').slice(11,16) || '',
+        amount: Number(c.totalAmount ?? c.total_amount ?? 0),
+        waiter: c.waiter_name || c.waiter || currentUser?.name
+      }));
+      setOrders(mapped);
+    } catch (err) {
+      console.warn('Orders yüklenemedi', err);
+      setOrders([]);
+    }
   };
 
   const getStatusColor = (status: Table['status']) => {
@@ -249,10 +238,18 @@ const Tables = () => {
   const totalAmount = orders.reduce((sum, order) => sum + order.amount, 0);
 
   if (loading) {
-    return <div className="tables-page"><div className="loading">Yükleniyor...</div></div>;
+    return (
+      <div className="tables-page">
+        <div className="loading-state">
+          <Loader2 className="spinner-icon" size={48} />
+          <p>Yükleniyor...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
+    <>
     <div className="tables-page">
       {/* Header */}
       <header className="tables-header">
@@ -285,25 +282,33 @@ const Tables = () => {
         
         <div className="header-actions">
           <button 
-            className="view-toggle" 
+            className="theme-toggle-payment" 
             onClick={() => setViewMode(viewMode === 'grid' ? 'bird' : 'grid')}
             title={viewMode === 'grid' ? 'Kuş Bakışı' : 'Grid Görünüm'}
           >
-            {viewMode === 'grid' ? <Grid3x3 size={20} /> : <LayoutGrid size={20} />}
+            {viewMode === 'grid' ? <Bird size={24} /> : <Grid3x3 size={24} />}
           </button>
-          <button className="theme-toggle" onClick={toggleTheme}>
+          <button className="theme-toggle-payment" onClick={toggleTheme}>
             {theme === 'light' ? <Moon size={24} /> : <Sun size={24} />}
           </button>
-          <div className="waiter-info">
-            <span className="waiter-name">👤 {currentUser?.name || 'Kullanıcı Seçin'}</span>
-            <button 
-              className="change-waiter-btn" 
-              onClick={() => openUserSelect()}
-            >
-              <span className="waiter-btn-text">Değiştir</span>
-              <LogOut size={18} className="waiter-btn-icon" />
-            </button>
-          </div>
+          <button 
+            className="notification-btn"
+            onClick={() => setShowPanel(!showPanel)}
+            title="Bildirimler"
+            aria-label="Bildirim panelini aç"
+          >
+            <Bell size={24} />
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="notification-badge">
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
+          </button>
+          <button className="user-info-btn" onClick={() => openUserSelect()}>
+            <UserCircle2 size={22} />
+            <span>{currentUser?.name || 'Garson Seç'}</span>
+            <RefreshCw size={16} className="change-icon" />
+          </button>
         </div>
       </header>
 
@@ -375,7 +380,30 @@ const Tables = () => {
               data-area={selectedArea}
             >
               {tables
-                .filter(table => selectedArea === 'tumu' ? true : table.area === selectedArea)
+                .filter(table => {
+                  if (selectedArea === 'tumu') return true;
+                  
+                  // Normalize area for comparison
+                  const tableAreaNormalized = (table.area || '')
+                    .toLowerCase()
+                    .replace('ı', 'i')
+                    .replace('ğ', 'g')
+                    .replace('ü', 'u')
+                    .replace('ş', 's')
+                    .replace('ö', 'o')
+                    .replace('ç', 'c');
+                  
+                  const selectedAreaNormalized = selectedArea
+                    .toLowerCase()
+                    .replace('ı', 'i')
+                    .replace('ğ', 'g')
+                    .replace('ü', 'u')
+                    .replace('ş', 's')
+                    .replace('ö', 'o')
+                    .replace('ç', 'c');
+                  
+                  return tableAreaNormalized === selectedAreaNormalized;
+                })
                 .map((table) => {
               const statusClass = getStatusColor(table.status);
               const statusText = getStatusText(table.status, table.currentGuests);
@@ -424,7 +452,7 @@ const Tables = () => {
                       
                       {table.status === 'available' && (
                         <div className="table-empty-info">
-                          <div className="table-capacity">👥 {table.capacity} Kişi</div>
+                          <div className="table-capacity">👥 {table.capacity} Kişilik</div>
                         </div>
                       )}
                     </>
@@ -442,6 +470,8 @@ const Tables = () => {
         </main>
       </div>
     </div>
+    <NotificationPanel />
+    </>
   );
 };
 

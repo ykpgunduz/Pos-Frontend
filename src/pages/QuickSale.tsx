@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Trash2, Moon, Sun, Search, UserCircle2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Trash2, Moon, Sun, Search, UserCircle2, RefreshCw, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import './QuickSale.css';
 import { Product, OrderItem, Category } from '../types';
@@ -7,6 +7,8 @@ import { productService } from '../services/productService';
 import { categoryService } from '../services/categoryService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
+import { useNotification } from '../contexts/NotificationContext';
+import NotificationPanel from '../components/NotificationPanel';
 
 interface CartItem extends OrderItem {
   notes?: string;
@@ -16,6 +18,7 @@ const QuickSale = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { currentUser, openUserSelect } = useUser();
+  const { showPanel, setShowPanel, notifications } = useNotification();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null); // null = "Tümü"
@@ -207,6 +210,19 @@ const QuickSale = () => {
           <button className="theme-toggle-payment" onClick={toggleTheme}>
             {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
           </button>
+          <button 
+            className="notification-btn"
+            onClick={() => setShowPanel(!showPanel)}
+            title="Bildirimler"
+            aria-label="Bildirim panelini aç"
+          >
+            <Bell size={24} />
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span className="notification-badge">
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
+          </button>
           <button className="user-info-btn" onClick={openUserSelect}>
             <UserCircle2 size={22} />
             <span>{currentUser?.name || 'Garson Seç'}</span>
@@ -331,6 +347,7 @@ const QuickSale = () => {
           </div>
         </main>
       </div>
+      <NotificationPanel />
     </div>
   );
 };
