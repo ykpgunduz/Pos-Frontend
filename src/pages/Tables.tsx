@@ -173,11 +173,11 @@ const Tables = () => {
       const uniqueAreas = Array.from(
         new Set(
           apiTables
-            .map((t: any) => t.area)
-            .filter((area: any) => area && area.trim() !== '')
+            .map((t: any) => String(t.area))
+            .filter((area: string) => area && area.trim() !== '')
         )
-      ).sort(); // Alfabetik sırala
-      
+      ).sort() as string[]; // Alfabetik sırala
+
       const areaList = ['tumu', ...uniqueAreas];
       setAreas(areaList);
       console.log('📍 Bulunan arealar:', areaList);
